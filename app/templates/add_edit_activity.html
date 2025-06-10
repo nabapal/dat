@@ -1,62 +1,64 @@
 {% extends "base.html" %}
 {% block title %}Add/Edit Activity{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h3>{{ 'Edit Activity' if activity else 'Add Activity' }}</h3>
-            </div>
-            <div class="card-body">
-                {% if reassign %}
-                <div class="alert alert-warning mb-3">
-                    <strong>Reassign Activity:</strong> Select one or more team members to assign this activity. New assignments will be created for each selected member.
-                </div>
-                {% endif %}
-                <form method="POST">
-                    {{ form.hidden_tag() }}
-                    <div class="mb-3">
-                        {{ form.details.label(class="form-label") }}
-                        {{ form.details(class="form-control") }}
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            {{ form.node_name.label(class="form-label") }}
-                            {{ form.node_name(class="form-select") }}
-                        </div>
-                        <div class="col-md-4">
-                            {{ form.activity_type.label(class="form-label") }}
-                            {{ form.activity_type(class="form-select") }}
-                        </div>
-                        <div class="col-md-4">
-                            {{ form.status.label(class="form-label") }}
-                            {{ form.status(class="form-select") }}
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            {{ form.start_date.label(class="form-label") }}
-                            {{ form.start_date(class="form-control") }}
-                        </div>
-                        <div class="col-md-6">
-                            {{ form.end_date.label(class="form-label") }}
-                            {{ form.end_date(class="form-control") }}
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        {{ form.assigned_to.label(class="form-label") }}
-                        {{ form.assigned_to(class="form-select", multiple=true) }}
-                        {% if current_user.role == 'team_lead' %}
-                        <div class="form-text">Hold Ctrl (Windows) or Cmd (Mac) to select multiple team members.</div>
-                        {% endif %}
-                    </div>
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary me-md-2">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Save Activity</button>
-                    </div>
-                </form>
-            </div>
+<div class="container-fluid">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">{{ 'Edit Activity' if activity else 'Add Activity' }}</h6>
         </div>
+        <div class="card-body">
+          {% if reassign %}
+          <div class="alert alert-warning mb-3">
+            <strong>Reassign Activity:</strong> Select one or more team members to assign this activity. New assignments will be created for each selected member.
+          </div>
+          {% endif %}
+          <form method="POST">
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+              {{ form.details.label(class="form-label font-weight-bold") }}
+              {{ form.details(class="form-control") }}
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-4">
+                {{ form.node_name.label(class="form-label font-weight-bold") }}
+                {{ form.node_name(class="form-select") }}
+              </div>
+              <div class="col-md-4">
+                {{ form.activity_type.label(class="form-label font-weight-bold") }}
+                {{ form.activity_type(class="form-select") }}
+              </div>
+              <div class="col-md-4">
+                {{ form.status.label(class="form-label font-weight-bold") }}
+                {{ form.status(class="form-select") }}
+              </div>
+            </div>
+            <div class="row mb-3">
+              <div class="col-md-6">
+                {{ form.start_date.label(class="form-label font-weight-bold") }}
+                {{ form.start_date(class="form-control") }}
+              </div>
+              <div class="col-md-6">
+                {{ form.end_date.label(class="form-label font-weight-bold") }}
+                {{ form.end_date(class="form-control") }}
+              </div>
+            </div>
+            <div class="mb-3">
+              {{ form.assigned_to.label(class="form-label font-weight-bold") }}
+              {{ form.assigned_to(class="form-select", multiple=true) }}
+              {% if current_user.role == 'team_lead' %}
+                <small class="form-text text-muted">Hold Ctrl (Windows) or Cmd (Mac) to select multiple team members.</small>
+              {% endif %}
+            </div>
+            <div class="d-flex justify-content-end gap-2">
+              <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Cancel</a>
+              <button type="submit" class="btn btn-primary btn-sm">{{ 'Save Changes' if activity else 'Add Activity' }}</button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
 {% endblock %}

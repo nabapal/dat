@@ -1,123 +1,80 @@
 {% extends 'base.html' %}
 {% block title %}Team Dashboard{% endblock %}
 {% block extra_css %}
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-<style>
-    .metrics-card { min-height: 120px; }
-    .timeline-list { list-style: none; padding: 0; }
-    .timeline-item { border-left: 4px solid #007bff; margin-bottom: 1.5rem; padding-left: 1rem; position: relative; }
-    .timeline-item:before { content: ''; position: absolute; left: -10px; top: 0; width: 16px; height: 16px; background: #007bff; border-radius: 50%; }
-</style>
+<link rel="stylesheet" href="/static/flatpickr.min.css">
 {% endblock %}
 {% block content %}
-<h2 class="mb-4">Team Dashboard</h2>
-<div class="mb-3">
+<div class="container-fluid">
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Team Dashboard</h1>
+  </div>
+  <div class="mb-3">
     <strong>Team Members:</strong>
     {% for member in team_members %}
-        <span class="badge bg-primary">{{ member.username }}</span>
+      <span class="badge badge-primary">{{ member.username }}</span>
     {% else %}
-        <span class="text-muted">No team members found.</span>
+      <span class="text-muted">No team members found.</span>
     {% endfor %}
-</div>
-<!-- Metrics Cards -->
-<div class="row mb-4">
+  </div>
+  <!-- Metrics Cards -->
+  <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card text-center metrics-card">
-            <div class="card-body">
-                <h5 class="card-title">Total</h5>
-                <p class="display-6">{{ activities|length }}</p>
-            </div>
+      <div class="card border-left-primary shadow h-100 py-2">
+        <div class="card-body text-center">
+          <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Total</div>
+          <div class="h5 mb-0 font-weight-bold text-gray-800">{{ activities|length }}</div>
         </div>
+      </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-center metrics-card">
-            <div class="card-body">
-                <h5 class="card-title">Completed</h5>
-                <p class="display-6">{{ activities|selectattr('status', 'equalto', 'completed')|list|length }}</p>
-            </div>
+      <div class="card border-left-success shadow h-100 py-2">
+        <div class="card-body text-center">
+          <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Completed</div>
+          <div class="h5 mb-0 font-weight-bold text-gray-800">{{ activities|selectattr('status', 'equalto', 'completed')|list|length }}</div>
         </div>
+      </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-center metrics-card">
-            <div class="card-body">
-                <h5 class="card-title">In Progress</h5>
-                <p class="display-6">{{ activities|selectattr('status', 'equalto', 'in_progress')|list|length }}</p>
-            </div>
+      <div class="card border-left-warning shadow h-100 py-2">
+        <div class="card-body text-center">
+          <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">In Progress</div>
+          <div class="h5 mb-0 font-weight-bold text-gray-800">{{ activities|selectattr('status', 'equalto', 'in_progress')|list|length }}</div>
         </div>
+      </div>
     </div>
     <div class="col-md-3">
-        <div class="card text-center metrics-card">
-            <div class="card-body">
-                <h5 class="card-title">On Hold</h5>
-                <p class="display-6">{{ activities|selectattr('status', 'equalto', 'on_hold')|list|length }}</p>
-            </div>
+      <div class="card border-left-info shadow h-100 py-2">
+        <div class="card-body text-center">
+          <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Pending</div>
+          <div class="h5 mb-0 font-weight-bold text-gray-800">{{ activities|selectattr('status', 'equalto', 'pending')|list|length }}</div>
         </div>
+      </div>
     </div>
-</div>
-<!-- Date Range Picker -->
-<div class="mb-4">
-    <label for="date-range" class="form-label">Filter by Date Range:</label>
-    <input type="text" id="date-range" class="form-control flatpickr" placeholder="Select date range">
-</div>
-<!-- Activity Timeline -->
-<div class="card mb-4">
-    <div class="card-header">Activity Timeline</div>
+  </div>
+  <!-- Timeline -->
+  <div class="card shadow mb-4">
+    <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-info">Recent Activity Timeline</h6>
+    </div>
     <div class="card-body">
-        <ul class="timeline-list">
-            {% for activity in activities %}
-            <li class="timeline-item">
-                <div>
-                    <strong>#{{ activity.activity_id }}</strong> - {{ activity.details|truncate(40) }}<br>
-                    <small>Status: <span class="badge bg-secondary">{{ activity.status }}</span></small>
-                    <small> | Assignee: <span class="badge bg-info">{{ activity.assignee.username if activity.assignee else activity.assigned_to }}</span></small>
-                    <small> | Start: {{ activity.start_date.strftime('%Y-%m-%d') }}</small>
-                </div>
-                <div class="mt-2">
-                    <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="btn btn-sm btn-outline-primary">Updates</a>
-                    <a href="{{ url_for('edit_activity', id=activity.id) }}" class="btn btn-sm btn-outline-secondary">Edit</a>
-                </div>
-            </li>
-            {% else %}
-            <li class="timeline-item text-center">No activities found.</li>
-            {% endfor %}
-        </ul>
+      <ul class="list-group list-group-flush">
+        {% for event in timeline %}
+        <li class="list-group-item">
+          <span class="font-weight-bold">{{ event.date }}</span> - {{ event.description }}
+        </li>
+        {% else %}
+        <li class="list-group-item text-muted">No recent activity.</li>
+        {% endfor %}
+      </ul>
     </div>
-</div>
-<!-- Status Distribution Chart -->
-<div class="card mb-4">
-    <div class="card-header">Status Distribution</div>
-    <div class="card-body">
-        <canvas id="statusChart" height="100"></canvas>
-    </div>
+  </div>
 </div>
 {% endblock %}
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+<script src="/static/flatpickr.min.js"></script>
+<script src="/static/js/vendor/chart.js/Chart.min.js"></script>
 <script>
     flatpickr('.flatpickr', { mode: 'range', dateFormat: 'Y-m-d' });
-    // Chart.js status distribution
-    const ctx = document.getElementById('statusChart').getContext('2d');
-    var statusCounts = [
-        Number("{{ activities|selectattr('status', 'equalto', 'completed')|list|length }}"),
-        Number("{{ activities|selectattr('status', 'equalto', 'in_progress')|list|length }}"),
-        Number("{{ activities|selectattr('status', 'equalto', 'on_hold')|list|length }}"),
-        Number("{{ activities|selectattr('status', 'equalto', 'pending')|list|length }}")
-    ];
-    new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Completed', 'In Progress', 'On Hold', 'Pending'],
-            datasets: [{
-                data: statusCounts,
-                backgroundColor: ['#28a745', '#007bff', '#ffc107', '#6c757d'],
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { position: 'bottom' } }
-        }
-    });
+    // Chart.js status distribution (if needed)
 </script>
 {% endblock %}
