@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Activity Updates{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h4>Updates for Activity: {{ activity.activity_id }}</h4>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary mb-3">Back to Dashboard</a>
+    {% if updates %}
+        <ul class="list-group">
+        {% for update in updates %}
+            <li class="list-group-item">
+                <strong>{{ update.update_date.strftime('%Y-%m-%d') }}</strong><br>
+                {{ update.update_text }}
+                <div class="text-muted small">By: {{ user_map[update.updated_by] if update.updated_by in user_map else update.updated_by }}</div>
+                {% if current_user.id == update.updated_by or current_user.role == 'team_lead' %}
+                    <div class="mt-2">
+                        <a href="{{ url_for('edit_update', update_id=update.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                        <form method="POST" action="{{ url_for('delete_update', update_id=update.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this update?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <div class="alert alert-info">No updates added yet for this activity.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,63 @@
+Traceback (most recent call last):
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/relationships.py", line 2758, in _determine_joins
+    consider_as_foreign_keys=consider_as_foreign_keys,
+  File "<string>", line 2, in join_condition
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/sql/selectable.py", line 1218, in _join_condition
+    a, b, constraints, consider_as_foreign_keys
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/sql/selectable.py", line 1343, in _joincond_trim_constraints
+    "join explicitly." % (a.description, b.description)
+sqlalchemy.exc.AmbiguousForeignKeysError: Can't determine join between 'user' and 'activity'; tables have more than one foreign key constraint relationship between them. Please specify the 'onclause' of this join explicitly.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/naba/DAT/venv/bin/flask", line 11, in <module>
+    sys.exit(main())
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/flask/cli.py", line 995, in main
+    cli.main(args=sys.argv[1:])
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/flask/cli.py", line 601, in main
+    return super().main(*args, **kwargs)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/click/core.py", line 1053, in main
+    rv = self.invoke(ctx)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/click/core.py", line 1659, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/click/core.py", line 1395, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/click/core.py", line 754, in invoke
+    return __callback(*args, **kwargs)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/click/decorators.py", line 26, in new_func
+    return f(get_current_context(), *args, **kwargs)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/flask/cli.py", line 445, in decorator
+    return __ctx.invoke(f, *args, **kwargs)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/click/core.py", line 754, in invoke
+    return __callback(*args, **kwargs)
+  File "/home/naba/DAT/seed_demo.py", line 12, in seed_demo
+    u1 = User(username='alice', password_hash='alice', team='A', role='team_lead')
+  File "<string>", line 4, in __init__
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/state.py", line 476, in _initialize_instance
+    manager.dispatch.init(self, args, kwargs)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/event/attr.py", line 346, in __call__
+    fn(*args, **kw)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/mapper.py", line 3716, in _event_on_init
+    instrumenting_mapper._check_configure()
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/mapper.py", line 1941, in _check_configure
+    _configure_registries({self.registry}, cascade=True)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/mapper.py", line 3527, in _configure_registries
+    _do_configure_registries(registries, cascade)
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/mapper.py", line 3566, in _do_configure_registries
+    mapper._post_configure_properties()
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/mapper.py", line 1958, in _post_configure_properties
+    prop.init()
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/interfaces.py", line 231, in init
+    self.do_init()
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/relationships.py", line 2152, in do_init
+    self._setup_join_conditions()
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/relationships.py", line 2264, in _setup_join_conditions
+    can_be_synced_fn=self._columns_are_mapped,
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/relationships.py", line 2643, in __init__
+    self._determine_joins()
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/orm/relationships.py", line 2817, in _determine_joins
+    from_=afe,
+  File "/home/naba/DAT/venv/lib/python3.6/site-packages/sqlalchemy/util/compat.py", line 211, in raise_
+    raise exception
+sqlalchemy.exc.AmbiguousForeignKeysError: Could not determine join condition between parent/child tables on relationship User.activities - there are multiple foreign key paths linking the tables.  Specify the 'foreign_keys' argument, providing a list of those columns which should be counted as containing a foreign key reference to the parent table.

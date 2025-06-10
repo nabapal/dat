@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Activity Reports{% endblock %}
+{% block content %}
+<div class="container-fluid px-4">
+<h2 class="mb-4">Activity Reports</h2>
+<!-- Status Summary Row -->
+<div class="row mb-3 g-2">
+  <div class="col-auto">
+    <span class="fw-bold">Total:</span>
+    <a href="{{ url_for('reports', assignee=request.args.get('assignee', ''), status='') }}" class="badge bg-dark text-white ms-1 text-decoration-none {% if not request.args.get('status') %}border border-2 border-primary{% endif %}">{{ summary.total }}</a>
+  </div>
+  <div class="col-auto">
+    <span class="fw-bold">Completed:</span>
+    <a href="{{ url_for('reports', assignee=request.args.get('assignee', ''), status='completed') }}" class="badge bg-success text-white ms-1 text-decoration-none {% if request.args.get('status') == 'completed' %}border border-2 border-success{% endif %}">{{ summary.completed }}</a>
+  </div>
+  <div class="col-auto">
+    <span class="fw-bold">In Progress:</span>
+    <a href="{{ url_for('reports', assignee=request.args.get('assignee', ''), status='in_progress') }}" class="badge bg-warning text-dark ms-1 text-decoration-none {% if request.args.get('status') == 'in_progress' %}border border-2 border-warning{% endif %}">{{ summary.in_progress }}</a>
+  </div>
+  <div class="col-auto">
+    <span class="fw-bold">Pending:</span>
+    <a href="{{ url_for('reports', assignee=request.args.get('assignee', ''), status='pending') }}" class="badge bg-secondary text-white ms-1 text-decoration-none {% if request.args.get('status') == 'pending' %}border border-2 border-secondary{% endif %}">{{ summary.pending }}</a>
+  </div>
+</div>
+<!-- Team Members Row (with team lead included) -->
+{% if team_members %}
+<div class="row mb-3">
+  <div class="col-md-12">
+    <div class="mb-2 fw-bold">Team Members:</div>
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <a href="{{ url_for('reports', status=request.args.get('status', '')) }}" class="badge bg-dark text-white text-decoration-none {% if not request.args.get('assignee') %}border border-2 border-primary{% endif %}">All</a>
+      {% for member in team_members %}
+        <a href="{{ url_for('reports', assignee=member.id, status=request.args.get('status', '')) }}" class="badge bg-primary text-decoration-none {% if request.args.get('assignee') == member.id|string %}border border-2 border-warning{% endif %}">{{ member.username }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <h5>Total Activities</h5>
+            <p class="display-6">{{ total_activities }}</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <h5>Total Hours</h5>
+            <p class="display-6">{{ '%.1f'|format(total_hours) }}</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card stat-card">
+            <h5>Avg. Daily Hours</h5>
+            <p class="display-6">{{ '%.1f'|format(avg_daily_hours) }}</p>
+        </div>
+    </div>
+</div>
+<div class="card">
+    <div class="card-header">
+        <h5>Detailed Activity Log</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Activity ID</th>
+                        <th>Details</th>
+                        <th>Status</th>
+                        <th>Start</th>
+                        <th>End</th>
+                        <th>Duration</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for activity in activities %}
+                    <tr>
+                        <td>{{ activity.activity_id }}</td>
+                        <td>{{ activity.details|truncate(30) }}</td>
+                        <td>{{ activity.status }}</td>
+                        <td>{{ activity.start_date.strftime('%Y-%m-%d') }}</td>
+                        <td>{% if activity.end_date %}{{ activity.end_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
+                        <td>{% if activity.duration %}{{ '%.2f'|format(activity.duration) }}{% else %}-{% endif %}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center">No activities found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}
