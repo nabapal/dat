@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% block title %}User & Team Management{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">User & Team Management</h1>
+  </div>
+  <div class="row">
+    <div class="col-lg-6 mb-4">
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-primary">Add New User</h6>
+        </div>
+        <div class="card-body">
+          <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="form_type" value="add_user">
+            <div class="mb-3">
+              <label class="form-label font-weight-bold">Username</label>
+              <input type="text" name="username" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label font-weight-bold">Password</label>
+              <input type="text" name="password" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label font-weight-bold">Role</label>
+              <select name="role" class="form-control" required>
+                <option value="member">Member</option>
+                <option value="team_lead">Team Lead</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label font-weight-bold">Team</label>
+              <select name="team" class="form-control" required>
+                {% for team in teams %}
+                  <option value="{{ team.id }}">{{ team.name }}</option>
+                {% endfor %}
+              </select>
+              <small class="form-text text-muted">Add new teams below if needed.</small>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Add User</button>
+          </form>
+        </div>
+      </div>
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-success">Add New Team</h6>
+        </div>
+        <div class="card-body">
+          <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="form_type" value="add_team">
+            <div class="mb-3">
+              <label class="form-label font-weight-bold">Team Name</label>
+              <input type="text" name="new_team" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success btn-block">Add Team</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6 mb-4">
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-info">All Users</h6>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+              <thead class="thead-light">
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Team</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in users %}
+                <tr>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.role }}</td>
+                  <td>{{ user.team.name if user.team else '' }}</td>
+                  <td>{% if user.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-warning">Pending</span>{% endif %}</td>
+                  <td>
+                    {% if not user.is_active %}
+                      <a href="{{ url_for('admin_users', approve=user.id) }}" class="btn btn-sm btn-success">Approve</a>
+                    {% endif %}
+                    <a href="{{ url_for('admin_users', delete=user.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Delete user?');">Delete</a>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="5" class="text-center">No users found.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card shadow mb-4">
+        <div class="card-header py-3">
+          <h6 class="m-0 font-weight-bold text-warning">Pending User Approvals</h6>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-hover">
+              <thead class="thead-light">
+                <tr>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Team</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in pending_users %}
+                <tr>
+                  <td>{{ user.username }}</td>
+                  <td>{{ user.role }}</td>
+                  <td>{{ user.team.name if user.team else '' }}</td>
+                  <td>
+                    <a href="{{ url_for('admin_users', approve=user.id) }}" class="btn btn-sm btn-success">Approve</a>
+                    <a href="{{ url_for('admin_users', delete=user.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Delete user?');">Delete</a>
+                  </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" class="text-center">No pending users.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

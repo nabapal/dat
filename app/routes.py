@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, login_required, current_user
 from . import app, db
-from .models import User, Activity, ActivityUpdate, Node, ActivityType, Status
+from .models import User, Activity, ActivityUpdate, Node, ActivityType, Status, Team
 from .forms import LoginForm, ActivityForm, DummyDropdownForm, UpdateForm
 from datetime import datetime
 from wtforms import SelectField, SelectMultipleField
@@ -9,6 +9,7 @@ from wtforms.validators import DataRequired
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo
+from werkzeug.security import generate_password_hash
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -17,7 +18,10 @@ def index():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user and user.password_hash == form.password.data:  # Replace with hash check
+        if user and user.password_hash == form.password.data:
+            if not user.is_active:
+                flash('Your account is pending admin approval.', 'warning')
+                return render_template('login.html', form=form)
             login_user(user)
             return redirect(url_for('dashboard'))
         flash('Invalid username or password', 'danger')
@@ -411,3 +415,77 @@ def change_password():
             flash('Password changed successfully.', 'success')
             return redirect(url_for('dashboard'))
     return render_template('change_password.html', form=form)
+
+@app.route('/admin_users', methods=['GET', 'POST'])
+@login_required
+def admin_users():
+    if not hasattr(current_user, 'role') or current_user.role != 'admin':
+        flash('Access denied', 'danger')
+        return redirect(url_for('dashboard'))
+    from .models import User, Team
+    users = User.query.all()
+    teams = Team.query.order_by(Team.name).all()
+    if request.method == 'POST' and request.form.get('form_type') == 'add_team':
+        new_team = request.form.get('new_team')
+        if new_team and not Team.query.filter_by(name=new_team).first():
+            db.session.add(Team(name=new_team))
+            db.session.commit()
+            flash(f'Team "{new_team}" added (users can now be assigned to this team).', 'success')
+        else:
+            flash('Team already exists or invalid.', 'danger')
+        teams = Team.query.order_by(Team.name).all()
+        pending_users = User.query.filter_by(is_active=False).all()
+        return render_template('admin_users.html', users=users, teams=teams, pending_users=pending_users)
+    if request.method == 'POST' and request.form.get('form_type') == 'add_user':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role')
+        team_id = request.form.get('team')
+        if username and password and role and team_id:
+            if User.query.filter_by(username=username).first():
+                flash('Username already exists.', 'danger')
+            else:
+                user = User(username=username, password_hash=password, role=role, team_id=team_id, is_active=True)
+                db.session.add(user)
+                db.session.commit()
+                flash('User added successfully!', 'success')
+            return redirect(url_for('admin_users'))
+    if request.args.get('approve'):
+        user = User.query.get(int(request.args.get('approve')))
+        if user:
+            user.is_active = True
+            db.session.commit()
+            flash('User approved and activated.', 'success')
+        return redirect(url_for('admin_users'))
+    if request.args.get('delete'):
+        user = User.query.get(int(request.args.get('delete')))
+        if user:
+            db.session.delete(user)
+            db.session.commit()
+            flash('User deleted.', 'success')
+        return redirect(url_for('admin_users'))
+    pending_users = User.query.filter_by(is_active=False).all()
+    return render_template('admin_users.html', users=users, teams=teams, pending_users=pending_users)
+
+@app.route('/signup', methods=['GET', 'POST'])
+def signup():
+    from .models import User, Team
+    from . import db
+    from flask import render_template, request, redirect, url_for, flash
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role')
+        team_id = request.form.get('team')
+        if not username or not password or not role or not team_id:
+            flash('All fields are required.', 'danger')
+        elif User.query.filter_by(username=username).first():
+            flash('Username already exists.', 'danger')
+        else:
+            user = User(username=username, password_hash=password, role=role, team_id=team_id, is_active=False)
+            db.session.add(user)
+            db.session.commit()
+            flash('Signup successful! Awaiting admin approval.', 'success')
+            return redirect(url_for('index'))
+    teams = Team.query.order_by(Team.name).all()
+    return render_template('signup.html', teams=teams)

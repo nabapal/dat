@@ -10,15 +10,15 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(64), unique=True, nullable=False)
     password_hash = db.Column(db.String(128), nullable=False)
-    team = db.Column(db.String(64))
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'))
+    team = db.relationship('Team', backref='users')
     role = db.Column(db.String(32), default='member')
+    is_active = db.Column(db.Boolean, default=False)  # <-- Add this line
     activities = db.relationship('Activity', backref='user', lazy='dynamic', foreign_keys='Activity.user_id')
     assigned_by_me = db.relationship('Activity', foreign_keys='Activity.assigner_id', backref='assigner', lazy='dynamic')
 
     # Flask-Login integration
     def is_authenticated(self):
-        return True
-    def is_active(self):
         return True
     def is_anonymous(self):
         return False
@@ -59,3 +59,7 @@ class ActivityType(db.Model):
 class Status(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(50), unique=True, nullable=False)
+
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64), unique=True, nullable=False)
