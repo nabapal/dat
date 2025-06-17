@@ -212,6 +212,8 @@ def delete_update(update_id):
 @login_required
 def reports():
     team_members = []
+    status_summary = node_summary = type_summary = member_summary = None
+    node_status_update = member_status_update = type_status_update = None
     if current_user.role == 'team_lead':
         team_members = User.query.filter_by(team=current_user.team).all()
         assignee_id = request.args.get('assignee', type=int)
@@ -224,6 +226,36 @@ def reports():
         activities = query.all()
         # Build summary for all team activities (not just filtered)
         all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).all()
+        from collections import Counter, defaultdict
+        status_summary = Counter([a.status for a in all_activities])
+        node_summary = Counter([a.node_name for a in all_activities if a.node_name])
+        type_summary = Counter([a.activity_type for a in all_activities if a.activity_type])
+        member_summary = defaultdict(lambda: Counter())
+        for a in all_activities:
+            for u in a.assignees:
+                if u in team_members:
+                    member_summary[u.username][a.status] += 1
+        # Node status (no update days)
+        node_status_update = defaultdict(lambda: {'status': Counter(), 'count': 0})
+        for a in all_activities:
+            if a.node_name:
+                node_status_update[a.node_name]['status'][a.status] += 1
+                node_status_update[a.node_name]['count'] += 1
+        # Member status (no update days)
+        member_status_update = defaultdict(lambda: {'status': Counter(), 'count': 0})
+        for u in team_members:
+            user_activities = [a for a in all_activities if u in a.assignees]
+            for a in user_activities:
+                member_status_update[u.username]['status'][a.status] += 1
+                member_status_update[u.username]['count'] += 1
+        # Type status and days contributed
+        type_status_update = defaultdict(lambda: {'status': Counter(), 'count': 0, 'days_contributed': 0})
+        for a in all_activities:
+            if a.activity_type:
+                type_status_update[a.activity_type]['status'][a.status] += 1
+                type_status_update[a.activity_type]['count'] += 1
+                days_contributed = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=a.id).all())
+                type_status_update[a.activity_type]['days_contributed'] += len(days_contributed)
         summary = {
             'total': len(all_activities),
             'completed': sum(1 for a in all_activities if a.status == 'completed'),
@@ -238,10 +270,11 @@ def reports():
             'in_progress': sum(1 for a in activities if a.status == 'in_progress'),
             'pending': sum(1 for a in activities if a.status == 'pending'),
         }
+        status_summary = node_summary = type_summary = member_summary = node_status_update = member_status_update = None
     total_activities = len(activities)
     total_hours = sum([a.duration or 0 for a in activities])
     avg_daily_hours = total_hours / 7 if total_activities else 0
-    return render_template('reports.html', activities=activities, total_activities=total_activities, total_hours=total_hours, avg_daily_hours=avg_daily_hours, team_members=team_members, summary=summary)
+    return render_template('reports.html', activities=activities, total_activities=total_activities, total_hours=total_hours, avg_daily_hours=avg_daily_hours, team_members=team_members, summary=summary, status_summary=status_summary, node_summary=node_summary, type_summary=type_summary, member_summary=member_summary, node_status_update=node_status_update, member_status_update=member_status_update, type_status_update=type_status_update)
 
 @app.route('/logout')
 @login_required
