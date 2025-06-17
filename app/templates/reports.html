@@ -10,6 +10,7 @@
   <div class="row mb-4">
     {% for status, count in status_summary.items() %}
     <div class="col-xl-3 col-md-6 mb-4">
+      <a href="{{ url_for('team_activities', status=status) }}" style="text-decoration:none;">
       <div class="card border-left-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} shadow h-100 py-2">
         <div class="card-body">
           <div class="row no-gutters align-items-center">
@@ -23,6 +24,7 @@
           </div>
         </div>
       </div>
+      </a>
     </div>
     {% endfor %}
   </div>
@@ -36,13 +38,13 @@
           <tbody>
             {% for node, stat in node_status_update.items() %}
             <tr>
-              <td>{{ node }}</td>
+              <td><a href="{{ url_for('team_activities', node_name=node) }}">{{ node }}</a></td>
               <td>
                 {% for status, count in stat['status'].items() %}
-                  <span class="badge badge-pill badge-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} mr-1">{{ status|capitalize }}: {{ count }}</span>
+                  <a href="{{ url_for('team_activities', node_name=node, status=status) }}" class="badge badge-pill badge-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} mr-1">{{ status|capitalize }}: {{ count }}</a>
                 {% endfor %}
               </td>
-              <td>{{ stat['count'] }}</td>
+              <td><a href="{{ url_for('team_activities', node_name=node) }}">{{ stat['count'] }}</a></td>
             </tr>
             {% else %}<tr><td colspan="3" class="text-center">No data</td></tr>{% endfor %}
           </tbody>
@@ -66,13 +68,13 @@
           <tbody>
             {% for member, stat in member_status_update.items() %}
             <tr>
-              <td>{{ member }}</td>
+              <td><a href="{{ url_for('team_activities', assignee=member) }}">{{ member }}</a></td>
               <td>
                 {% for status, count in stat['status'].items() %}
-                  <span class="badge badge-pill badge-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} mr-1">{{ status|capitalize }}: {{ count }}</span>
+                  <a href="{{ url_for('team_activities', assignee=member, status=status) }}" class="badge badge-pill badge-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} mr-1">{{ status|capitalize }}: {{ count }}</a>
                 {% endfor %}
               </td>
-              <td>{{ stat['count'] }}</td>
+              <td><a href="{{ url_for('team_activities', assignee=member) }}">{{ stat['count'] }}</a></td>
             </tr>
             {% else %}<tr><td colspan="3" class="text-center">No data</td></tr>{% endfor %}
           </tbody>
@@ -90,13 +92,13 @@
           <tbody>
             {% for type, stat in type_status_update.items() %}
             <tr>
-              <td>{{ type }}</td>
+              <td><a href="{{ url_for('team_activities', activity_type=type) }}">{{ type }}</a></td>
               <td>
                 {% for status, count in stat['status'].items() %}
-                  <span class="badge badge-pill badge-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} mr-1">{{ status|capitalize }}: {{ count }}</span>
+                  <a href="{{ url_for('team_activities', activity_type=type, status=status) }}" class="badge badge-pill badge-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }} mr-1">{{ status|capitalize }}: {{ count }}</a>
                 {% endfor %}
               </td>
-              <td>{{ stat['count'] }}</td>
+              <td><a href="{{ url_for('team_activities', activity_type=type) }}">{{ stat['count'] }}</a></td>
               <td>{{ stat['days_contributed'] }}</td>
             </tr>
             {% else %}<tr><td colspan="4" class="text-center">No data</td></tr>{% endfor %}
