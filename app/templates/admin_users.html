@@ -83,7 +83,7 @@
                 <tr>
                   <td>{{ user.username }}</td>
                   <td>{{ user.role }}</td>
-                  <td>{{ user.team.name if user.team else '' }}</td>
+                  <td>{% if user.teams %}{{ user.teams|map(attribute='name')|join(', ') }}{% else %}{% endif %}</td>
                   <td>{% if user.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-warning">Pending</span>{% endif %}</td>
                   <td>
                     {% if not user.is_active %}
@@ -120,7 +120,7 @@
                 <tr>
                   <td>{{ user.username }}</td>
                   <td>{{ user.role }}</td>
-                  <td>{{ user.team.name if user.team else '' }}</td>
+                  <td>{% if user.teams %}{{ user.teams|map(attribute='name')|join(', ') }}{% else %}{% endif %}</td>
                   <td>
                     <a href="{{ url_for('admin_users', approve=user.id) }}" class="btn btn-sm btn-success">Approve</a>
                     <a href="{{ url_for('admin_users', delete=user.id) }}" class="btn btn-sm btn-danger" onclick="return confirm('Delete user?');">Delete</a>

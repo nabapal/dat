@@ -30,7 +30,7 @@ def index():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    if current_user.role == 'team_lead':
+    if current_user.role in ['team_lead', 'super_lead']:
         return redirect(url_for('reports'))
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '', type=str)
@@ -75,8 +75,11 @@ def add_activity():
     form.node_name.choices = [(n.name, n.name) for n in Node.query.order_by(Node.name).all()]
     form.activity_type.choices = [(t.name, t.name) for t in ActivityType.query.order_by(ActivityType.name).all()]
     form.status.choices = [(s.name, s.name.capitalize()) for s in Status.query.order_by(Status.name).all()]
-    if current_user.role == 'team_lead':
-        form.assigned_to.choices = [(u.id, u.username) for u in User.query.filter_by(team=current_user.team).all()]
+    if current_user.role in ['team_lead', 'super_lead']:
+        # Get all users in any of the current user's teams
+        team_ids = [t.id for t in current_user.teams]
+        team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+        form.assigned_to.choices = [(u.id, u.username) for u in team_members]
     else:
         form.assigned_to.choices = [(current_user.id, current_user.username)]
         form.assigned_to.data = [current_user.id]
@@ -105,12 +108,16 @@ def add_activity():
 @login_required
 def edit_activity(id):
     activity = Activity.query.get_or_404(id)
-    # Team lead can edit any activity assigned to a member of their team; assignee can edit their own
-    team_members = User.query.filter_by(team=current_user.team).all() if current_user.role == 'team_lead' else []
-    team_member_ids = [m.id for m in team_members]
-    is_team_lead_and_on_team = current_user.role == 'team_lead' and any(u.id in team_member_ids for u in activity.assignees)
+    # Team lead or super lead can edit any activity assigned to their teams; assignee can edit their own
+    if current_user.role in ['team_lead', 'super_lead']:
+        team_ids = [t.id for t in current_user.teams] if current_user.role == 'team_lead' else [t.id for t in Team.query.all()]
+        team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+        team_member_ids = [m.id for m in team_members]
+        is_team_lead_and_on_team = any(u.id in team_member_ids for u in activity.assignees)
+    else:
+        is_team_lead_and_on_team = False
     is_assignee = current_user in activity.assignees
-    if not (is_team_lead_and_on_team or is_assignee):
+    if not (is_team_lead_and_on_team or is_assignee or current_user.role == 'super_lead'):
         flash('Not authorized', 'danger')
         return redirect(url_for('dashboard'))
     form = ActivityForm(obj=activity)
@@ -118,43 +125,37 @@ def edit_activity(id):
     form.node_name.choices = [(n.name, n.name) for n in Node.query.order_by(Node.name).all()]
     form.activity_type.choices = [(t.name, t.name) for t in ActivityType.query.order_by(ActivityType.name).all()]
     form.status.choices = [(s.name, s.name.capitalize()) for s in Status.query.order_by(Status.name).all()]
-    if current_user.role == 'team_lead':
-        form.assigned_to.choices = [(u.id, u.username) for u in User.query.filter_by(team=current_user.team).all()]
+    if current_user.role in ['team_lead', 'super_lead']:
+        form.assigned_to.choices = [(u.id, u.username) for u in team_members]
     else:
         form.assigned_to.choices = [(current_user.id, current_user.username)]
     if request.method == 'GET':
         form.assigned_to.data = [u.id for u in activity.assignees]
     if form.validate_on_submit():
-        if current_user.role == 'team_lead':
-            # Only team lead can update assignees
+        if current_user.role in ['team_lead', 'super_lead']:
             activity.assignees = User.query.filter(User.id.in_(form.assigned_to.data)).all()
-        # Always update other fields
         form.populate_obj(activity)
         db.session.commit()
         flash('Activity updated successfully!', 'success')
         return redirect(url_for('dashboard'))
     return render_template('add_edit_activity.html', form=form, activity=activity)
 
-@app.route('/team_dashboard')
-@login_required
-def team_dashboard():
-    if current_user.role != 'team_lead':
-        flash('Access denied', 'danger')
-        return redirect(url_for('dashboard'))
-    team_members = User.query.filter_by(team=current_user.team).all()
-    activities = Activity.query.filter(Activity.assigned_to.in_([m.id for m in team_members])).all()
-    return render_template('team_dashboard.html', activities=activities, team_members=team_members)
-
 @app.route('/activity/<int:activity_id>/updates')
 @login_required
 def view_updates(activity_id):
     activity = Activity.query.get_or_404(activity_id)
-    # Allow any assignee to view updates
-    if current_user not in activity.assignees and current_user.role != 'team_lead':
+    # Allow any assignee, team lead for their teams, or super_lead/admin to view updates
+    if current_user in activity.assignees or current_user.role in ['super_lead', 'admin']:
+        pass
+    elif current_user.role == 'team_lead':
+        team_ids = [t.id for t in current_user.teams]
+        if not set(team_ids).intersection([t.id for t in activity.assignees[0].teams]):
+            flash('Not authorized', 'danger')
+            return redirect(url_for('dashboard'))
+    else:
         flash('Not authorized', 'danger')
         return redirect(url_for('dashboard'))
     updates = ActivityUpdate.query.filter_by(activity_id=activity.id).order_by(ActivityUpdate.update_date.desc()).all()
-    # Fetch user info for each update
     user_map = {u.id: u.username for u in User.query.all()}
     return render_template('view_updates.html', activity=activity, updates=updates, user_map=user_map)
 
@@ -162,8 +163,10 @@ def view_updates(activity_id):
 @login_required
 def add_update(activity_id):
     activity = Activity.query.get_or_404(activity_id)
-    # Allow any assignee to add updates
-    if current_user not in activity.assignees and current_user.role != 'team_lead':
+    # Allow any assignee, team lead, or super lead to add updates
+    if current_user in activity.assignees or current_user.role in ['team_lead', 'super_lead']:
+        pass
+    else:
         flash('Not authorized', 'danger')
         return redirect(url_for('dashboard'))
     form = UpdateForm()
@@ -215,11 +218,20 @@ def delete_update(update_id):
 @app.route('/reports')
 @login_required
 def reports():
+    from collections import Counter, defaultdict
     team_members = []
     status_summary = node_summary = type_summary = member_summary = None
     node_status_update = member_status_update = type_status_update = None
-    if current_user.role == 'team_lead':
-        team_members = User.query.filter_by(team=current_user.team).all()
+    # Team selection for team_lead and super_lead
+    if current_user.role in ['team_lead', 'super_lead']:
+        # Get all teams for this user
+        all_teams = current_user.teams if current_user.role == 'team_lead' else Team.query.all()
+        selected_team_id = request.args.get('team_id', type=int)
+        if selected_team_id:
+            selected_teams = [t for t in all_teams if t.id == selected_team_id]
+        else:
+            selected_teams = all_teams
+        team_members = User.query.join(User.teams).filter(Team.id.in_([t.id for t in selected_teams])).distinct().all()
         assignee_id = request.args.get('assignee', type=int)
         status = request.args.get('status', '')
         query = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members]))
@@ -230,7 +242,6 @@ def reports():
         activities = query.all()
         # Build summary for all team activities (not just filtered)
         all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).all()
-        from collections import Counter, defaultdict
         status_summary = Counter([a.status for a in all_activities])
         node_summary = Counter([a.node_name for a in all_activities if a.node_name])
         type_summary = Counter([a.activity_type for a in all_activities if a.activity_type])
@@ -239,20 +250,17 @@ def reports():
             for u in a.assignees:
                 if u in team_members:
                     member_summary[u.username][a.status] += 1
-        # Node status (no update days)
         node_status_update = defaultdict(lambda: {'status': Counter(), 'count': 0})
         for a in all_activities:
             if a.node_name:
                 node_status_update[a.node_name]['status'][a.status] += 1
                 node_status_update[a.node_name]['count'] += 1
-        # Member status (no update days)
         member_status_update = defaultdict(lambda: {'status': Counter(), 'count': 0})
         for u in team_members:
             user_activities = [a for a in all_activities if u in a.assignees]
             for a in user_activities:
                 member_status_update[u.username]['status'][a.status] += 1
                 member_status_update[u.username]['count'] += 1
-        # Type status and days contributed
         type_status_update = defaultdict(lambda: {'status': Counter(), 'count': 0, 'days_contributed': 0})
         for a in all_activities:
             if a.activity_type:
@@ -278,7 +286,7 @@ def reports():
     total_activities = len(activities)
     total_hours = sum([a.duration or 0 for a in activities])
     avg_daily_hours = total_hours / 7 if total_activities else 0
-    return render_template('reports.html', activities=activities, total_activities=total_activities, total_hours=total_hours, avg_daily_hours=avg_daily_hours, team_members=team_members, summary=summary, status_summary=status_summary, node_summary=node_summary, type_summary=type_summary, member_summary=member_summary, node_status_update=node_status_update, member_status_update=member_status_update, type_status_update=type_status_update)
+    return render_template('reports.html', activities=activities, total_activities=total_activities, total_hours=total_hours, avg_daily_hours=avg_daily_hours, team_members=team_members, summary=summary, status_summary=status_summary, node_summary=node_summary, type_summary=type_summary, member_summary=member_summary, node_status_update=node_status_update, member_status_update=member_status_update, type_status_update=type_status_update, all_teams=all_teams if current_user.role in ['team_lead', 'super_lead'] else None, selected_team_id=selected_team_id if current_user.role in ['team_lead', 'super_lead'] else None)
 
 @app.route('/logout')
 @login_required
@@ -312,17 +320,24 @@ def manage_team_dropdowns():
             db.session.commit()
             flash('Dropdown option added!', 'success')
         else:
-            flash('No new value added (may already exist or empty).', 'warning')
+            flash('No new value added (may already exist or be blank).', 'info')
         return redirect(url_for('manage_team_dropdowns'))
     return render_template('manage_team_dropdowns.html', node_names=node_names, activity_types=activity_types, statuses=statuses, form=form)
 
 @app.route('/team_activities')
 @login_required
 def team_activities():
-    if current_user.role != 'team_lead':
+    if current_user.role not in ['team_lead', 'super_lead']:
         flash('Access denied', 'danger')
         return redirect(url_for('dashboard'))
-    team_members = User.query.filter_by(team=current_user.team).all()
+    # Team selection for super_lead
+    all_teams = current_user.teams if current_user.role == 'team_lead' else Team.query.all()
+    selected_team_id = request.args.get('team_id', type=int)
+    if selected_team_id:
+        selected_teams = [t for t in all_teams if t.id == selected_team_id]
+    else:
+        selected_teams = all_teams
+    team_members = User.query.join(User.teams).filter(Team.id.in_([t.id for t in selected_teams])).distinct().all()
     team_members_map = {m.id: m.username for m in team_members}
     search = request.args.get('search', '')
     assignee = request.args.get('assignee', type=int)
@@ -331,7 +346,7 @@ def team_activities():
     node_name = request.args.get('node_name')
     sort = request.args.get('sort', 'start_date')
     direction = request.args.get('direction', 'desc')
-    query = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members]))
+    query = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct()
     if assignee:
         query = query.filter(User.id == assignee)
     if status:
@@ -340,43 +355,23 @@ def team_activities():
         query = query.filter(Activity.activity_type == activity_type)
     if node_name:
         query = query.filter(Activity.node_name == node_name)
-    if search:
-        query = query.filter(
-            (Activity.activity_id.ilike(f'%{search}%')) |
-            (Activity.details.ilike(f'%{search}%')) |
-            (Activity.node_name.ilike(f'%{search}%')) |
-            (Activity.activity_type.ilike(f'%{search}%'))
-        )
-    sort_map = {
-        'activity_id': Activity.activity_id,
-        'details': Activity.details,
-        'status': Activity.status,
-        'node_name': Activity.node_name,
-        'activity_type': Activity.activity_type,
-        'start_date': Activity.start_date,
-        'end_date': Activity.end_date,
-    }
-    sort_col = sort_map.get(sort, Activity.start_date)
+    sort_col = getattr(Activity, sort)
     if direction == 'desc':
         sort_col = sort_col.desc()
-    else:
-        sort_col = sort_col.asc()
-    per_page = request.args.get('per_page', 10, type=int)
     page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
     activities = query.order_by(sort_col).paginate(page=page, per_page=per_page)
-    # Add update_days_count for each activity in the current page
     for activity in activities.items:
         update_days = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=activity.id).all())
         activity.update_days_count = len(update_days)
-    # Build summary for all team activities (not just filtered)
-    all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).all()
+    all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct().all()
     summary = {
         'total': len(all_activities),
         'completed': sum(1 for a in all_activities if a.status == 'completed'),
         'in_progress': sum(1 for a in all_activities if a.status == 'in_progress'),
         'pending': sum(1 for a in all_activities if a.status == 'pending'),
     }
-    return render_template('team_activities.html', activities=activities, team_members=team_members, team_members_map=team_members_map, summary=summary)
+    return render_template('team_activities.html', activities=activities, team_members=team_members, team_members_map=team_members_map, summary=summary, all_teams=all_teams, selected_team_id=selected_team_id)
 
 @app.route('/delete_activity/<int:id>', methods=['POST'])
 @login_required
@@ -445,7 +440,10 @@ def admin_users():
             if User.query.filter_by(username=username).first():
                 flash('Username already exists.', 'danger')
             else:
-                user = User(username=username, password_hash=password, role=role, team_id=team_id, is_active=True)
+                user = User(username=username, password_hash=password, role=role, is_active=True)
+                team = Team.query.get(int(team_id))
+                if team:
+                    user.teams.append(team)
                 db.session.add(user)
                 db.session.commit()
                 flash('User added successfully!', 'success')
@@ -482,10 +480,104 @@ def signup():
         elif User.query.filter_by(username=username).first():
             flash('Username already exists.', 'danger')
         else:
-            user = User(username=username, password_hash=password, role=role, team_id=team_id, is_active=False)
+            user = User(username=username, password_hash=password, role=role, is_active=False)
+            team = Team.query.get(int(team_id))
+            if team:
+                user.teams.append(team)
             db.session.add(user)
             db.session.commit()
             flash('Signup successful! Awaiting admin approval.', 'success')
             return redirect(url_for('index'))
     teams = Team.query.order_by(Team.name).all()
     return render_template('signup.html', teams=teams)
+
+
+
+@app.route('/team_management', methods=['GET', 'POST'])
+@login_required
+def team_management():
+    from .models import User, Team
+    # Determine which users and teams the current user can manage
+    if current_user.role in ['super_lead', 'admin']:
+        managed_users = User.query.all()
+        all_teams = Team.query.order_by(Team.name).all()
+    elif current_user.role == 'team_lead':
+        # Team leads manage their team members only
+        team_ids = [t.id for t in current_user.teams]
+        managed_users = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+        all_teams = current_user.teams
+    else:
+        flash('Access denied', 'danger')
+        return redirect(url_for('dashboard'))
+
+    # Handle add member
+    if request.method == 'POST' and request.form.get('form_action') == 'add_member':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        role = request.form.get('role', 'member')
+        team_ids = request.form.getlist('teams')
+        if not username or not password or not team_ids:
+            flash('All fields are required.', 'danger')
+        elif User.query.filter_by(username=username).first():
+            flash('Username already exists.', 'danger')
+        else:
+            user = User(username=username, password_hash=password, role=role, is_active=True)
+            for tid in team_ids:
+                team = Team.query.get(int(tid))
+                if team:
+                    user.teams.append(team)
+            db.session.add(user)
+            db.session.commit()
+            flash('User added successfully!', 'success')
+        return redirect(url_for('team_management'))
+
+    # Handle add team (super_lead/admin only)
+    if request.method == 'POST' and request.form.get('form_action') == 'add_team' and current_user.role in ['super_lead', 'admin']:
+        team_name = request.form.get('team_name')
+        if team_name and not Team.query.filter_by(name=team_name).first():
+            db.session.add(Team(name=team_name))
+            db.session.commit()
+            flash('Team added successfully!', 'success')
+        else:
+            flash('Team already exists or invalid.', 'danger')
+        return redirect(url_for('team_management'))
+
+    return render_template('pending_approvals.html', managed_users=managed_users, all_teams=all_teams)
+
+@app.route('/approve_user/<int:user_id>', methods=['POST'])
+@login_required
+def approve_user(user_id):
+    user = User.query.get_or_404(user_id)
+    # Only allow approval if current_user is a team lead for a member, or super lead/admin for any user
+    if user.role == 'member' and current_user.role == 'team_lead':
+        if not set([t.id for t in current_user.teams]).intersection([t.id for t in user.teams]):
+            flash('Not authorized to approve this user.', 'danger')
+            return redirect(url_for('team_management'))
+    elif current_user.role in ['super_lead', 'admin']:
+        pass
+    else:
+        flash('Not authorized to approve this user.', 'danger')
+        return redirect(url_for('team_management'))
+    user.is_active = True
+    db.session.commit()
+    flash('User approved and activated.', 'success')
+    return redirect(url_for('team_management'))
+
+@app.route('/remove_user/<int:user_id>', methods=['POST'])
+@login_required
+def remove_user(user_id):
+    user = User.query.get_or_404(user_id)
+    # Only allow removal if current_user is a team lead for a member, or super lead/admin
+    if user.role == 'member' and current_user.role == 'team_lead':
+        if not set([t.id for t in current_user.teams]).intersection([t.id for t in user.teams]):
+            flash('Not authorized to remove this user.', 'danger')
+            return redirect(url_for('team_management'))
+    elif current_user.role in ['super_lead', 'admin']:
+        pass
+    else:
+        flash('Not authorized to remove this user.', 'danger')
+        return redirect(url_for('team_management'))
+    db.session.delete(user)
+    db.session.commit()
+    flash('User removed.', 'success')
+    return redirect(url_for('team_management'))

@@ -3,13 +3,25 @@
 {% block content %}
 <div class="container-fluid">
   <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Team Activities</h1>
-    {% if current_user.role == 'team_lead' %}
-    <a href="{{ url_for('add_activity') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm">
-      <i class="fas fa-plus fa-sm text-white-50"></i> Add Activity
-    </a>
-    {% endif %}
+    <h1 class="h3 mb-0 text-gray-800">Team Activities
+      {% if current_user.role in ['team_lead', 'super_lead'] and selected_team_id %}
+        - {{ all_teams|selectattr('id', 'equalto', selected_team_id)|map(attribute='name')|join(', ') }}
+      {% elif current_user.role in ['team_lead', 'super_lead'] %}
+        - All My Teams
+      {% endif %}
+    </h1>
   </div>
+  {% if current_user.role in ['team_lead', 'super_lead'] %}
+  <form method="get" class="form-inline mb-3">
+    <label class="mr-2 font-weight-bold">Select Team:</label>
+    <select name="team_id" class="form-control mr-2" onchange="this.form.submit()">
+      <option value="">All My Teams</option>
+      {% for team in all_teams %}
+        <option value="{{ team.id }}" {% if selected_team_id and team.id == selected_team_id %}selected{% endif %}>{{ team.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
   <!-- Status Summary Row -->
   <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-4">

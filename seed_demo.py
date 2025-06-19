@@ -6,6 +6,10 @@ from app.models import User, Node, ActivityType, Status, Team
 def seed_demo():
     """Remove all data, then seed the database with teams, users, nodes, activity types, and statuses."""
     # Remove all data
+    db.session.execute('DELETE FROM user_teams')
+    db.session.execute('DELETE FROM activity_assignees')
+    db.session.execute('DELETE FROM activity_update')
+    db.session.execute('DELETE FROM activity')
     User.query.delete()
     Team.query.delete()
     Node.query.delete()
@@ -14,27 +18,38 @@ def seed_demo():
     db.session.commit()
 
     # Create teams
-    team_admin = Team(name='Admin')
     team_ipse = Team(name='IPSE')
-    team_telco = Team(name='Telco')
-    db.session.add_all([team_admin, team_ipse, team_telco])
+    team_telco = Team(name='Teclo')
+    db.session.add_all([team_ipse, team_telco])
     db.session.commit()
 
     # Create users
-    users = [
-        User(username='admin', password_hash='admin', team=team_admin, role='admin', is_active=True),
-        User(username='Abhijeet', password_hash='Abhijeet', team=team_ipse, role='member', is_active=True),
-        User(username='Shweta', password_hash='Shweta', team=team_ipse, role='member', is_active=True),
-        User(username='Gurkirat', password_hash='Gurkirat', team=team_ipse, role='member', is_active=True),
-        User(username='Konda', password_hash='Konda', team=team_ipse, role='member', is_active=True),
-        User(username='Sairam', password_hash='Sairam', team=team_ipse, role='member', is_active=True),
-        User(username='Kazi', password_hash='Kazi', team=team_telco, role='member', is_active=True),
-        User(username='Sumit', password_hash='Sumit', team=team_telco, role='member', is_active=True),
-        User(username='Neelmani', password_hash='Neelmani', team=team_telco, role='member', is_active=True),
-        User(username='Dilpreet', password_hash='Dilpreet', team=team_telco, role='member', is_active=True),
-        User(username='Ronak', password_hash='Ronak', team=team_telco, role='member', is_active=True),
+    naba = User(username='naba', password_hash='password', role='team_lead', is_active=True)
+    anup = User(username='anup', password_hash='password', role='super_lead', is_active=True)
+    admin = User(username='admin', password_hash='admin', role='admin', is_active=True)
+    naba.teams.extend([team_ipse, team_telco])
+    db.session.add_all([naba, anup, admin])
+    db.session.commit()
+
+    # Add some members to teams for demo
+    members = [
+        User(username='Abhijeet', password_hash='Abhijeet', role='member', is_active=True),
+        User(username='Shweta', password_hash='Shweta', role='member', is_active=True),
+        User(username='Gurkirat', password_hash='Gurkirat', role='member', is_active=True),
+        User(username='Konda', password_hash='Konda', role='member', is_active=True),
+        User(username='Sairam', password_hash='Sairam', role='member', is_active=True),
+        User(username='Kazi', password_hash='Kazi', role='member', is_active=True),
+        User(username='Sumit', password_hash='Sumit', role='member', is_active=True),
+        User(username='Neelmani', password_hash='Neelmani', role='member', is_active=True),
+        User(username='Dilpreet', password_hash='Dilpreet', role='member', is_active=True),
+        User(username='Ronak', password_hash='Ronak', role='member', is_active=True),
     ]
-    db.session.add_all(users)
+    # Assign first 5 to IPSE, rest to Teclo
+    for m in members[:5]:
+        m.teams.append(team_ipse)
+    for m in members[5:]:
+        m.teams.append(team_telco)
+    db.session.add_all(members)
     db.session.commit()
 
     # Create nodes
@@ -63,4 +78,4 @@ def seed_demo():
         db.session.add(Status(name=s))
     db.session.commit()
 
-    print('All data removed. Teams, users, nodes, activity types, and statuses seeded.')
+    print('All data removed. Teams, users (including naba and anup), nodes, activity types, and statuses seeded.')

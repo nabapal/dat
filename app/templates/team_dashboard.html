@@ -6,8 +6,25 @@
 {% block content %}
 <div class="container-fluid">
   <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Team Dashboard</h1>
+    <h1 class="h3 mb-0 text-gray-800">Team Dashboard
+      {% if current_user.role in ['team_lead', 'super_lead'] and selected_team_id %}
+        - {{ all_teams|selectattr('id', 'equalto', selected_team_id)|map(attribute='name')|join(', ') }}
+      {% elif current_user.role in ['team_lead', 'super_lead'] %}
+        - All My Teams
+      {% endif %}
+    </h1>
   </div>
+  {% if current_user.role in ['team_lead', 'super_lead'] %}
+  <form method="get" class="form-inline mb-3">
+    <label class="mr-2 font-weight-bold">Select Team:</label>
+    <select name="team_id" class="form-control mr-2" onchange="this.form.submit()">
+      <option value="">All My Teams</option>
+      {% for team in all_teams %}
+        <option value="{{ team.id }}" {% if selected_team_id and team.id == selected_team_id %}selected{% endif %}>{{ team.name }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  {% endif %}
   <div class="mb-3">
     <strong>Team Members:</strong>
     {% for member in team_members %}
@@ -59,8 +76,8 @@
               </td>
               <td class="text-truncate">{{ activity.node_name }}</td>
               <td class="text-truncate">{{ activity.activity_type }}</td>
-              <td class="text-truncate">{{ activity.start_date.strftime('%Y-%m-%d') }}</td>
-              <td class="text-truncate">{% if activity.end_date %}{{ activity.end_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
+              <td class="text-truncate">{{ activity.start_date.strftime('%Y-%m-%d') if activity.start_date else '' }}</td>
+              <td class="text-truncate">{{ activity.end_date.strftime('%Y-%m-%d') if activity.end_date else '' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="8" class="text-center">No activities found.</td></tr>

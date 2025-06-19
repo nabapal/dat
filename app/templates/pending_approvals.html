@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}Team Management{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Team Management</h1>
+    {% if current_user.role in ['super_lead', 'admin'] %}
+    <button class="btn btn-primary" data-toggle="modal" data-target="#addTeamModal">Add Team</button>
+    {% endif %}
+    {% if current_user.role in ['team_lead', 'super_lead', 'admin'] %}
+    <button class="btn btn-success" data-toggle="modal" data-target="#addMemberModal">Add Member</button>
+    {% endif %}
+  </div>
+  <div class="card shadow mb-4">
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+          <thead class="thead-light">
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Teams</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for user in managed_users %}
+            <tr>
+              <td>{{ user.username }}</td>
+              <td>{{ user.role }}</td>
+              <td>{% if user.teams %}{{ user.teams|map(attribute='name')|join(', ') }}{% endif %}</td>
+              <td>{% if user.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-warning">Pending</span>{% endif %}</td>
+              <td>
+                {% if not user.is_active %}
+                <form method="post" action="{{ url_for('approve_user', user_id=user.id) }}" style="display:inline-block;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                </form>
+                {% endif %}
+                {% if current_user.role in ['super_lead', 'admin'] or (current_user.role == 'team_lead' and user.role == 'member') %}
+                <form method="post" action="{{ url_for('remove_user', user_id=user.id) }}" style="display:inline-block;">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+                </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center">No users found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- Add Member Modal -->
+  <div class="modal fade" id="addMemberModal" tabindex="-1" role="dialog" aria-labelledby="addMemberModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('team_management') }}">
+          <input type="hidden" name="form_action" value="add_member">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addMemberModalLabel">Add New Member</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="username">Username</label>
+              <input type="text" class="form-control" name="username" required>
+            </div>
+            <div class="form-group">
+              <label for="password">Password</label>
+              <input type="password" class="form-control" name="password" required>
+            </div>
+            {% if current_user.role in ['super_lead', 'admin'] %}
+            <div class="form-group">
+              <label for="role">Role</label>
+              <select class="form-control" name="role">
+                <option value="member">Member</option>
+                <option value="team_lead">Team Lead</option>
+              </select>
+            </div>
+            {% endif %}
+            <div class="form-group">
+              <label for="teams">Assign to Team(s)</label>
+              <select class="form-control" name="teams" multiple required>
+                {% for team in all_teams %}
+                <option value="{{ team.id }}">{{ team.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Member</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <!-- Add/Edit Team Modal (for super_lead/admin) -->
+  {% if current_user.role in ['super_lead', 'admin'] %}
+  <div class="modal fade" id="addTeamModal" tabindex="-1" role="dialog" aria-labelledby="addTeamModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('team_management') }}">
+          <input type="hidden" name="form_action" value="add_team">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addTeamModalLabel">Add New Team</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="team_name">Team Name</label>
+              <input type="text" class="form-control" name="team_name" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Team</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
