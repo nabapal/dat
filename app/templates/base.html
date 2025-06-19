@@ -26,7 +26,7 @@
 <!-- Page Wrapper -->
 <div id="wrapper">
     <!-- Sidebar -->
-    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar">
+    <ul class="navbar-nav bg-gradient-primary sidebar sidebar-dark accordion" id="accordionSidebar" style="width:10px; min-width:140px;">
         <!-- Sidebar - Brand -->
         <a class="sidebar-brand d-flex align-items-center justify-content-center" href="/">
             <div class="sidebar-brand-icon rotate-n-15">
@@ -41,13 +41,6 @@
                 <span>Dashboard</span></a>
         </li>
         {% if current_user.is_authenticated and current_user.role in ['team_lead', 'super_lead'] %}
-        {% if current_user.role == 'team_lead' %}
-        <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('manage_team_dropdowns') }}">
-                <i class="fas fa-fw fa-cogs"></i>
-                <span>Attributes</span></a>
-        </li>
-        {% endif %}
         <li class="nav-item">
             <a class="nav-link" href="{{ url_for('team_activities') }}">
                 <i class="fas fa-fw fa-users"></i>
@@ -64,6 +57,13 @@
             <a class="nav-link" href="{{ url_for('team_management') }}">
                 <i class="fas fa-fw fa-users-cog"></i>
                 <span>Team Management</span></a>
+        </li>
+        {% endif %}
+        {% if current_user.is_authenticated and current_user.role == 'team_lead' %}
+        <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('manage_team_dropdowns') }}">
+                <i class="fas fa-fw fa-cogs"></i>
+                <span>Attributes</span></a>
         </li>
         {% endif %}
         <hr class="sidebar-divider d-none d-md-block">

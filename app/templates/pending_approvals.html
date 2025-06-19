@@ -2,16 +2,196 @@
 {% block title %}Team Management{% endblock %}
 {% block content %}
 <div class="container-fluid">
-  <div class="d-sm-flex align-items-center justify-content-between mb-4">
-    <h1 class="h3 mb-0 text-gray-800">Team Management</h1>
-    {% if current_user.role in ['super_lead', 'admin'] %}
-    <button class="btn btn-primary" data-toggle="modal" data-target="#addTeamModal">Add Team</button>
-    {% endif %}
-    {% if current_user.role in ['team_lead', 'super_lead', 'admin'] %}
-    <button class="btn btn-success" data-toggle="modal" data-target="#addMemberModal">Add Member</button>
-    {% endif %}
-  </div>
+  <!-- Team Summary Section (with total row) -->
   <div class="card shadow mb-4">
+    <div class="card-header py-3">
+      <h6 class="m-0 font-weight-bold text-primary">Team Summary</h6>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+          <thead class="thead-light">
+            <tr>
+              <th>Team</th>
+              <th>Team Lead</th>
+              <th>Members</th>
+              <th># Members</th>
+              <th>Total Activities</th>
+              {% set status_names = [] %}
+              {% for team in all_teams %}
+                {% for status, count in team.summary.status_counts.items() %}
+                  {% if status not in status_names %}
+                    {% set _ = status_names.append(status) %}
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+              {% for status in status_names %}
+                <th>{{ status|capitalize }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% set total_members = namespace(val=0) %}
+            {% set total_activities = namespace(val=0) %}
+            {% set total_status = dict() %}
+            {% for team in all_teams %}
+            {% set leads = team.users|selectattr('role', 'equalto', 'team_lead')|list %}
+            {% set members = team.users|rejectattr('role', 'equalto', 'team_lead')|list %}
+            {% set num_members = members|length %}
+            <tr>
+              <td><a href="{{ url_for('team_activities', team_id=team.id) }}">{{ team.name }}</a></td>
+              <td>
+                {% for lead in leads %}
+                  <span class="badge badge-info">{{ lead.username }}</span>{% if not loop.last %}, {% endif %}
+                {% endfor %}
+              </td>
+              <td>
+                {% for member in members %}
+                  <a href="{{ url_for('team_activities', assignee=member.id, team_id=team.id) }}" class="badge badge-primary mr-1">{{ member.username }}</a>
+                {% endfor %}
+              </td>
+              <td>{{ num_members }}</td>
+              <td>{{ team.summary.total or 0 }}</td>
+              {% for status in status_names %}
+                <td>{{ team.summary.status_counts[status] if status in team.summary.status_counts else 0 }}</td>
+                {% set total_status = total_status.update({status: (total_status[status] if status in total_status else 0) + (team.summary.status_counts[status] if status in team.summary.status_counts else 0)}) or total_status %}
+              {% endfor %}
+            </tr>
+            {% set total_members.val = total_members.val + num_members %}
+            {% set total_activities.val = total_activities.val + (team.summary.total or 0) %}
+            {% endfor %}
+            <tr class="font-weight-bold bg-light">
+              <td colspan="3" class="text-right">Total</td>
+              <td>{{ total_members.val }}</td>
+              <td>{{ total_activities.val }}</td>
+              {% for status in status_names %}
+                <td>{{ total_status[status] if status in total_status else 0 }}</td>
+              {% endfor %}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {% if current_user.role == 'super_lead' %}
+  <!-- Manage Teams Table (super_lead only) -->
+  <div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+      <h6 class="m-0 font-weight-bold text-primary">Manage Teams</h6>
+      <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addTeamModal">Add Team</button>
+    </div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+          <thead class="thead-light">
+            <tr>
+              <th>Team Name</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for team in all_teams %}
+            <tr>
+              <td id="team-name-{{ team.id }}">{{ team.name }}</td>
+              <td>
+                {% if team.name != 'Default' %}
+                  <button class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#editTeamModal-{{ team.id }}">Edit</button>
+                  <form method="post" action="{{ url_for('team_management') }}" style="display:inline-block;">
+                    <input type="hidden" name="form_action" value="delete_team">
+                    <input type="hidden" name="team_id" value="{{ team.id }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this team?');">Delete</button>
+                  </form>
+                  <!-- Edit Team Modal -->
+                  <div class="modal fade" id="editTeamModal-{{ team.id }}" tabindex="-1" role="dialog" aria-labelledby="editTeamModalLabel-{{ team.id }}" aria-hidden="true">
+                    <div class="modal-dialog" role="document">
+                      <div class="modal-content">
+                        <form method="post" action="{{ url_for('team_management') }}">
+                          <input type="hidden" name="form_action" value="edit_team_name">
+                          <input type="hidden" name="team_id" value="{{ team.id }}">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <div class="modal-header">
+                            <h5 class="modal-title" id="editTeamModalLabel-{{ team.id }}">Edit Team</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                              <span aria-hidden="true">&times;</span>
+                            </button>
+                          </div>
+                          <div class="modal-body">
+                            <div class="form-group">
+                              <label for="edit_team_name_{{ team.id }}">Team Name</label>
+                              <input type="text" class="form-control" id="edit_team_name_{{ team.id }}" name="new_team_name" value="{{ team.name }}" required>
+                            </div>
+                          </div>
+                          <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                          </div>
+                        </form>
+                      </div>
+                    </div>
+                  </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- Add Team Modal -->
+  <div class="modal fade" id="addTeamModal" tabindex="-1" role="dialog" aria-labelledby="addTeamModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <form method="post" action="{{ url_for('team_management') }}">
+          <input type="hidden" name="form_action" value="add_team">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="modal-header">
+            <h5 class="modal-title" id="addTeamModalLabel">Add Team</h5>
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="team_name">Team Name</label>
+              <input type="text" class="form-control" id="team_name" name="team_name" required>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Add Team</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <script>
+    function showEditTeamName(teamId, currentName) {
+      var cell = document.getElementById('team-name-' + teamId);
+      cell.innerHTML = `<form method=\"post\" action=\"{{ url_for('team_management') }}\" class=\"form-inline d-inline\">
+        <input type=\"hidden\" name=\"form_action\" value=\"edit_team_name\">
+        <input type=\"hidden\" name=\"team_id\" value=\"${teamId}\">
+        <input type=\"text\" name=\"new_team_name\" value=\"${currentName}\" class=\"form-control form-control-sm mr-1\" required>
+        <button type=\"submit\" class=\"btn btn-sm btn-success\">Save</button>
+        <button type=\"button\" class=\"btn btn-sm btn-secondary\" onclick=\"cancelEditTeamName(${teamId}, '${currentName}')\">Cancel</button>
+      </form>`;
+    }
+
+    function cancelEditTeamName(teamId, currentName) {
+      var cell = document.getElementById('team-name-' + teamId);
+      cell.innerHTML = currentName;
+    }
+  </script>
+  {% endif %}
+
+  <!-- Manage Team Members Table (visible to super_lead and team_lead) -->
+  <div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+      <h6 class="m-0 font-weight-bold text-primary">Manage Team Members</h6>
+      <button class="btn btn-primary btn-sm" data-toggle="modal" data-target="#addMemberModal">Add Member</button>
+    </div>
     <div class="card-body">
       <div class="table-responsive">
         <table class="table table-bordered table-hover">
@@ -28,26 +208,94 @@
             {% for user in managed_users %}
             <tr>
               <td>{{ user.username }}</td>
-              <td>{{ user.role }}</td>
-              <td>{% if user.teams %}{{ user.teams|map(attribute='name')|join(', ') }}{% endif %}</td>
-              <td>{% if user.is_active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge badge-warning">Pending</span>{% endif %}</td>
               <td>
-                {% if not user.is_active %}
-                <form method="post" action="{{ url_for('approve_user', user_id=user.id) }}" style="display:inline-block;">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-success btn-sm">Approve</button>
-                </form>
-                {% endif %}
-                {% if current_user.role in ['super_lead', 'admin'] or (current_user.role == 'team_lead' and user.role == 'member') %}
-                <form method="post" action="{{ url_for('remove_user', user_id=user.id) }}" style="display:inline-block;">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                  <button type="submit" class="btn btn-danger btn-sm">Remove</button>
-                </form>
+                {% if user.role == 'super_lead' %}
+                  <span class="badge badge-warning">Super Lead</span>
+                {% elif user.role == 'team_lead' %}
+                  <span class="badge badge-info">Team Lead</span>
+                {% elif user.role == 'admin' %}
+                  <span class="badge badge-dark">Admin</span>
+                {% else %}
+                  <span class="badge badge-primary">Member</span>
                 {% endif %}
               </td>
+              <td>
+                {% for t in user.teams %}
+                  <span class="badge badge-info mr-1">{{ t.name }}</span>
+                {% endfor %}
+              </td>
+              <td>
+                {% if user.is_active %}
+                  <span class="badge badge-success">Active</span>
+                {% else %}
+                  <span class="badge badge-warning">Pending Approval</span>
+                {% endif %}
+              </td>
+              <td>
+                <button class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#editUserModal-{{ user.id }}">Edit</button>
+                {% if not user.is_active %}
+                  <form method="post" action="{{ url_for('approve_user', user_id=user.id) }}" style="display:inline-block;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                  </form>
+                {% endif %}
+                {% if user.role != 'super_lead' and user.role != 'admin' %}
+                  <form method="post" action="{{ url_for('remove_user', user_id=user.id) }}" style="display:inline-block;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to remove this user?');" {% if user.has_activities %}disabled title="Cannot delete: user has activities"{% endif %}>Remove</button>
+                  </form>
+                {% endif %}
+                <!-- Edit User Modal -->
+                <div class="modal fade" id="editUserModal-{{ user.id }}" tabindex="-1" role="dialog" aria-labelledby="editUserModalLabel-{{ user.id }}" aria-hidden="true">
+                  <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                      <form method="post" action="{{ url_for('team_management') }}">
+                        <input type="hidden" name="form_action" value="edit_user">
+                        <input type="hidden" name="user_id" value="{{ user.id }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="modal-header">
+                          <h5 class="modal-title" id="editUserModalLabel-{{ user.id }}">Edit User</h5>
+                          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                          </button>
+                        </div>
+                        <div class="modal-body">
+                          <div class="form-group">
+                            <label for="edit_username_{{ user.id }}">Username</label>
+                            <input type="text" class="form-control" id="edit_username_{{ user.id }}" name="username" value="{{ user.username }}" required>
+                          </div>
+                          <div class="form-group">
+                            <label for="edit_role_{{ user.id }}">Role</label>
+                            <select class="form-control" id="edit_role_{{ user.id }}" name="role" required>
+                              <option value="member" {% if user.role == 'member' %}selected{% endif %}>Member</option>
+                              <option value="team_lead" {% if user.role == 'team_lead' %}selected{% endif %}>Team Lead</option>
+                              <option value="super_lead" {% if user.role == 'super_lead' %}selected{% endif %}>Super Lead</option>
+                              <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                            </select>
+                          </div>
+                          <div class="form-group">
+                            <label for="edit_teams_{{ user.id }}">Teams</label>
+                            <select class="form-control" id="edit_teams_{{ user.id }}" name="teams" multiple required>
+                              {% for t in all_teams %}
+                                <option value="{{ t.id }}" {% if t in user.teams %}selected{% endif %}>{{ t.name }}</option>
+                              {% endfor %}
+                            </select>
+                          </div>
+                          <div class="form-group form-check">
+                            <input type="checkbox" class="form-check-input" id="edit_active_{{ user.id }}" name="is_active" value="1" {% if user.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="edit_active_{{ user.id }}">Active</label>
+                          </div>
+                        </div>
+                        <div class="modal-footer">
+                          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                          <button type="submit" class="btn btn-primary">Save Changes</button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </td>
             </tr>
-            {% else %}
-            <tr><td colspan="5" class="text-center">No users found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -60,35 +308,36 @@
       <div class="modal-content">
         <form method="post" action="{{ url_for('team_management') }}">
           <input type="hidden" name="form_action" value="add_member">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <div class="modal-header">
-            <h5 class="modal-title" id="addMemberModalLabel">Add New Member</h5>
+            <h5 class="modal-title" id="addMemberModalLabel">Add Team Member</h5>
             <button type="button" class="close" data-dismiss="modal" aria-label="Close">
               <span aria-hidden="true">&times;</span>
             </button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label for="username">Username</label>
-              <input type="text" class="form-control" name="username" required>
+              <label for="add_username">Username</label>
+              <input type="text" class="form-control" id="add_username" name="username" required>
             </div>
             <div class="form-group">
-              <label for="password">Password</label>
-              <input type="password" class="form-control" name="password" required>
+              <label for="add_password">Password</label>
+              <input type="password" class="form-control" id="add_password" name="password" required>
             </div>
-            {% if current_user.role in ['super_lead', 'admin'] %}
             <div class="form-group">
-              <label for="role">Role</label>
-              <select class="form-control" name="role">
+              <label for="add_role">Role</label>
+              <select class="form-control" id="add_role" name="role" required>
                 <option value="member">Member</option>
                 <option value="team_lead">Team Lead</option>
+                <option value="super_lead">Super Lead</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
-            {% endif %}
             <div class="form-group">
-              <label for="teams">Assign to Team(s)</label>
-              <select class="form-control" name="teams" multiple required>
-                {% for team in all_teams %}
-                <option value="{{ team.id }}">{{ team.name }}</option>
+              <label for="add_teams">Teams</label>
+              <select class="form-control" id="add_teams" name="teams" multiple required>
+                {% for t in all_teams %}
+                  <option value="{{ t.id }}">{{ t.name }}</option>
                 {% endfor %}
               </select>
             </div>
@@ -101,33 +350,5 @@
       </div>
     </div>
   </div>
-  <!-- Add/Edit Team Modal (for super_lead/admin) -->
-  {% if current_user.role in ['super_lead', 'admin'] %}
-  <div class="modal fade" id="addTeamModal" tabindex="-1" role="dialog" aria-labelledby="addTeamModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-      <div class="modal-content">
-        <form method="post" action="{{ url_for('team_management') }}">
-          <input type="hidden" name="form_action" value="add_team">
-          <div class="modal-header">
-            <h5 class="modal-title" id="addTeamModalLabel">Add New Team</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="team_name">Team Name</label>
-              <input type="text" class="form-control" name="team_name" required>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Add Team</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

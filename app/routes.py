@@ -75,8 +75,13 @@ def add_activity():
     form.node_name.choices = [(n.name, n.name) for n in Node.query.order_by(Node.name).all()]
     form.activity_type.choices = [(t.name, t.name) for t in ActivityType.query.order_by(ActivityType.name).all()]
     form.status.choices = [(s.name, s.name.capitalize()) for s in Status.query.order_by(Status.name).all()]
-    if current_user.role in ['team_lead', 'super_lead']:
-        # Get all users in any of the current user's teams
+    if current_user.role == 'super_lead':
+        # Show all users, leads first, then members
+        all_users = User.query.order_by(User.role.desc(), User.username.asc()).all()
+        leads = [u for u in all_users if u.role == 'team_lead']
+        members = [u for u in all_users if u.role != 'team_lead']
+        form.assigned_to.choices = [(u.id, u.username + (' (Lead)' if u.role == 'team_lead' else '')) for u in leads + members]
+    elif current_user.role == 'team_lead':
         team_ids = [t.id for t in current_user.teams]
         team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
         form.assigned_to.choices = [(u.id, u.username) for u in team_members]
@@ -305,22 +310,94 @@ def manage_team_dropdowns():
     node_names = [n.name for n in Node.query.order_by(Node.name).all()]
     activity_types = [t.name for t in ActivityType.query.order_by(ActivityType.name).all()]
     statuses = [s.name for s in Status.query.order_by(Status.name).all()]
-    if form.validate_on_submit():
-        added = False
-        if form.node_name.data and not Node.query.filter_by(name=form.node_name.data).first():
-            db.session.add(Node(name=form.node_name.data))
-            added = True
-        if form.activity_type.data and not ActivityType.query.filter_by(name=form.activity_type.data).first():
-            db.session.add(ActivityType(name=form.activity_type.data))
-            added = True
-        if form.status.data and not Status.query.filter_by(name=form.status.data).first():
-            db.session.add(Status(name=form.status.data))
-            added = True
-        if added:
-            db.session.commit()
-            flash('Dropdown option added!', 'success')
+    if request.method == 'POST':
+        if not request.form.get('csrf_token') or request.form.get('csrf_token') != str(form.csrf_token._value()):
+            flash('Invalid CSRF token.', 'danger')
+            return redirect(url_for('manage_team_dropdowns'))
+        action = request.form.get('form_action')
+        if action == 'edit_node':
+            old_value = request.form.get('old_value')
+            new_value = request.form.get('new_value')
+            if old_value and new_value and old_value != new_value:
+                node = Node.query.filter_by(name=old_value).first()
+                if node and not Node.query.filter_by(name=new_value).first():
+                    node.name = new_value
+                    db.session.commit()
+                    flash('Node updated.', 'success')
+                else:
+                    flash('Duplicate or invalid node name.', 'danger')
+        elif action == 'delete_node':
+            value = request.form.get('value')
+            node = Node.query.filter_by(name=value).first()
+            if node:
+                # Safety: prevent delete if node is in use
+                if Activity.query.filter_by(node_name=node.name).first():
+                    flash('Cannot delete: node in use.', 'danger')
+                else:
+                    db.session.delete(node)
+                    db.session.commit()
+                    flash('Node deleted.', 'success')
+        elif action == 'edit_type':
+            old_value = request.form.get('old_value')
+            new_value = request.form.get('new_value')
+            if old_value and new_value and old_value != new_value:
+                t = ActivityType.query.filter_by(name=old_value).first()
+                if t and not ActivityType.query.filter_by(name=new_value).first():
+                    t.name = new_value
+                    db.session.commit()
+                    flash('Activity type updated.', 'success')
+                else:
+                    flash('Duplicate or invalid activity type.', 'danger')
+        elif action == 'delete_type':
+            value = request.form.get('value')
+            t = ActivityType.query.filter_by(name=value).first()
+            if t:
+                # Safety: prevent delete if type is in use
+                if Activity.query.filter_by(activity_type=t.name).first():
+                    flash('Cannot delete: activity type in use.', 'danger')
+                else:
+                    db.session.delete(t)
+                    db.session.commit()
+                    flash('Activity type deleted.', 'success')
+        elif action == 'edit_status':
+            old_value = request.form.get('old_value')
+            new_value = request.form.get('new_value')
+            if old_value and new_value and old_value != new_value:
+                s = Status.query.filter_by(name=old_value).first()
+                if s and not Status.query.filter_by(name=new_value).first():
+                    s.name = new_value
+                    db.session.commit()
+                    flash('Status updated.', 'success')
+                else:
+                    flash('Duplicate or invalid status name.', 'danger')
+        elif action == 'delete_status':
+            value = request.form.get('value')
+            s = Status.query.filter_by(name=value).first()
+            if s:
+                # Safety: prevent delete if status is in use
+                if Activity.query.filter_by(status=s.name).first():
+                    flash('Cannot delete: status in use.', 'danger')
+                else:
+                    db.session.delete(s)
+                    db.session.commit()
+                    flash('Status deleted.', 'success')
         else:
-            flash('No new value added (may already exist or be blank).', 'info')
+            # Existing add logic
+            added = False
+            if form.node_name.data and not Node.query.filter_by(name=form.node_name.data).first():
+                db.session.add(Node(name=form.node_name.data))
+                added = True
+            if form.activity_type.data and not ActivityType.query.filter_by(name=form.activity_type.data).first():
+                db.session.add(ActivityType(name=form.activity_type.data))
+                added = True
+            if form.status.data and not Status.query.filter_by(name=form.status.data).first():
+                db.session.add(Status(name=form.status.data))
+                added = True
+            if added:
+                db.session.commit()
+                flash('Dropdown option added!', 'success')
+            else:
+                flash('No new value added (may already exist or be blank).', 'info')
         return redirect(url_for('manage_team_dropdowns'))
     return render_template('manage_team_dropdowns.html', node_names=node_names, activity_types=activity_types, statuses=statuses, form=form)
 
@@ -542,25 +619,103 @@ def team_management():
             flash('Team already exists or invalid.', 'danger')
         return redirect(url_for('team_management'))
 
+    # Handle edit team name (super_lead only)
+    if request.method == 'POST' and request.form.get('form_action') == 'edit_team_name' and current_user.role == 'super_lead':
+        team_id = request.form.get('team_id')
+        new_team_name = request.form.get('new_team_name', '').strip()
+        if team_id and new_team_name:
+            team = Team.query.get(int(team_id))
+            if team and not Team.query.filter(Team.name == new_team_name, Team.id != team.id).first():
+                team.name = new_team_name
+                db.session.commit()
+                flash('Team name updated.', 'success')
+            else:
+                flash('Invalid or duplicate team name.', 'danger')
+        else:
+            flash('Team name cannot be blank.', 'danger')
+        return redirect(url_for('team_management'))
+
+    # Handle delete team (super_lead only)
+    if request.method == 'POST' and request.form.get('form_action') == 'delete_team' and current_user.role == 'super_lead':
+        team_id = request.form.get('team_id')
+        team = Team.query.get(int(team_id))
+        if team and team.name != 'Default':
+            has_users = len(team.users) > 0
+            has_activities = False
+            for user in team.users:
+                if Activity.query.join(Activity.assignees).filter(Activity.assignees.any(id=user.id)).count() > 0:
+                    has_activities = True
+                    break
+            if has_users or has_activities:
+                flash('Cannot delete team: team has users or activities.', 'danger')
+            else:
+                db.session.delete(team)
+                db.session.commit()
+                flash('Team deleted.', 'success')
+        else:
+            flash('Cannot delete this team.', 'danger')
+        return redirect(url_for('team_management'))
+
+    # Handle edit user (super_lead/team_lead)
+    if request.method == 'POST' and request.form.get('form_action') == 'edit_user':
+        user_id = request.form.get('user_id')
+        user = User.query.get(int(user_id))
+        if user:
+            user.username = request.form.get('username')
+            user.role = request.form.get('role')
+            # Update teams
+            team_ids = request.form.getlist('teams')
+            user.teams = [Team.query.get(int(tid)) for tid in team_ids if Team.query.get(int(tid))]
+            # Update active status
+            user.is_active = bool(request.form.get('is_active'))
+            db.session.commit()
+            flash('User updated successfully!', 'success')
+        else:
+            flash('User not found.', 'danger')
+        return redirect(url_for('team_management'))
+
+    # For each managed user, set has_activities flag for template
+    for u in managed_users:
+        u.has_activities = Activity.query.join(Activity.assignees).filter(Activity.assignees.any(id=u.id)).count() > 0
+
+    # Build team activity summary for the team management page
+    team_summaries = {}
+    all_statuses = set()
+    for team in all_teams:
+        team_members = team.users
+        activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct().all()
+        status_counts = {}
+        for a in activities:
+            status_counts[a.status] = status_counts.get(a.status, 0) + 1
+            all_statuses.add(a.status)
+        team_summaries[team.id] = {
+            'total': len(activities),
+            'status_counts': status_counts,
+            'num_members': len(team_members),
+        }
+    # Attach summary to each team for template
+    for team in all_teams:
+        team.summary = team_summaries.get(team.id, {'total': 0, 'status_counts': {}, 'num_members': 0})
+    # Order managed_users: super_lead first, then team_lead, then member, then admin (if present)
+    role_order = {'super_lead': 0, 'team_lead': 1, 'member': 2, 'admin': 3}
+    managed_users = sorted(managed_users, key=lambda u: (role_order.get(u.role, 99), u.username.lower()))
     return render_template('pending_approvals.html', managed_users=managed_users, all_teams=all_teams)
 
 @app.route('/approve_user/<int:user_id>', methods=['POST'])
 @login_required
 def approve_user(user_id):
     user = User.query.get_or_404(user_id)
-    # Only allow approval if current_user is a team lead for a member, or super lead/admin for any user
+    # Only allow approval if current_user is a team lead for a member, or super lead/admin
     if user.role == 'member' and current_user.role == 'team_lead':
         if not set([t.id for t in current_user.teams]).intersection([t.id for t in user.teams]):
             flash('Not authorized to approve this user.', 'danger')
             return redirect(url_for('team_management'))
-    elif current_user.role in ['super_lead', 'admin']:
-        pass
-    else:
+    elif current_user.role not in ['super_lead', 'admin']:
         flash('Not authorized to approve this user.', 'danger')
         return redirect(url_for('team_management'))
     user.is_active = True
     db.session.commit()
-    flash('User approved and activated.', 'success')
+    flash('User approved.', 'success')
     return redirect(url_for('team_management'))
 
 @app.route('/remove_user/<int:user_id>', methods=['POST'])
