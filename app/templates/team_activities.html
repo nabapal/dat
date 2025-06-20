@@ -153,7 +153,7 @@
                 {% endfor %}
               </td>
               <td>
-                <span class="badge {% if activity.status == 'completed' %}badge-success{% elif activity.status == 'in_progress' %}badge-warning{% elif activity.status == 'pending' %}badge-info{% else %}badge-secondary{% endif %}">
+                <span class="badge {% set status = activity.status|lower %}{% if status == 'completed' %}badge-success{% elif status == 'in_progress' %}badge-warning{% elif status == 'pending' %}badge-info{% elif status == 'on_hold' %}badge-secondary{% elif status == 'active' %}badge-primary{% elif status == 'inactive' %}badge-dark{% elif status == 'cancelled' %}badge-danger{% else %}badge-light{% endif %}">
                   {{ activity.status|capitalize }}
                 </span>
               </td>

@@ -381,8 +381,32 @@ def manage_team_dropdowns():
                     db.session.delete(s)
                     db.session.commit()
                     flash('Status deleted.', 'success')
+        elif action == 'add_node':
+            node_name = request.form.get('node_name')
+            if node_name and not Node.query.filter_by(name=node_name).first():
+                db.session.add(Node(name=node_name))
+                db.session.commit()
+                flash('Node added successfully.', 'success')
+            else:
+                flash('Node already exists or invalid name.', 'danger')
+        elif action == 'add_type':
+            activity_type = request.form.get('activity_type')
+            if activity_type and not ActivityType.query.filter_by(name=activity_type).first():
+                db.session.add(ActivityType(name=activity_type))
+                db.session.commit()
+                flash('Activity type added successfully.', 'success')
+            else:
+                flash('Activity type already exists or invalid name.', 'danger')
+        elif action == 'add_status':
+            status = request.form.get('status')
+            if status and not Status.query.filter_by(name=status).first():
+                db.session.add(Status(name=status))
+                db.session.commit()
+                flash('Status added successfully.', 'success')
+            else:
+                flash('Status already exists or invalid name.', 'danger')
         else:
-            # Existing add logic
+            # Old add logic (kept for compatibility)
             added = False
             if form.node_name.data and not Node.query.filter_by(name=form.node_name.data).first():
                 db.session.add(Node(name=form.node_name.data))
