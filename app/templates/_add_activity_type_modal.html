@@ -1,0 +1,27 @@
+{# _add_activity_type_modal.html - SB Admin 2 styled modal for adding Activity Type #}
+<div class="modal fade" id="addActivityTypeModal" tabindex="-1" role="dialog" aria-labelledby="addActivityTypeModalLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="addActivityTypeModalLabel">Add Activity Type</h5>
+        <button type="button" class="close text-white" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <form method="POST" action="{{ url_for('manage_team_dropdowns') }}">
+        <input type="hidden" name="form_action" value="add_type">
+        <input type="hidden" name="csrf_token" value="{{ form.csrf_token._value() }}">
+        <div class="modal-body">
+          <div class="form-group">
+            {{ form.activity_type.label(class="form-label") }}
+            {{ form.activity_type(class="form-control") }}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Add</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

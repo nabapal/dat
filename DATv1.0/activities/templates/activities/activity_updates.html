@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Activity Updates for {{ activity.activity_id }}</h2>
+  <ul class="list-group mb-3">
+    {% for update in updates %}
+      <li class="list-group-item">
+        <strong>{{ update.update_date }}</strong>: {{ update.update_text|linebreaks }}
+        <span class="text-muted float-end">by {{ update.updated_by }}</span>
+      </li>
+    {% empty %}
+      <li class="list-group-item">No updates yet.</li>
+    {% endfor %}
+  </ul>
+  <h4>Add Update</h4>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Add Update</button>
+    <a class="btn btn-secondary" href="{% url 'activity_list' %}">Back to Activities</a>
+  </form>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Combined Team Summary{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="d-sm-flex align-items-center justify-content-between mb-4">
+    <h1 class="h3 mb-0 text-gray-800">Combined Team Summary</h1>
+  </div>
+  <form method="get" class="form-inline mb-3">
+    <label class="mr-2 font-weight-bold">Select Teams:</label>
+    <select name="team_ids" class="form-control mr-2" multiple size="5">
+      {% for team in all_teams %}
+        <option value="{{ team.id }}" {% if team.id in selected_team_ids %}selected{% endif %}>{{ team.name }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary">Show Summary</button>
+  </form>
+  <div class="mb-3">
+    <strong>Teams:</strong>
+    {% for team in selected_teams %}
+      <span class="badge badge-info">{{ team.name }}</span>
+    {% else %}
+      <span class="text-muted">No teams selected.</span>
+    {% endfor %}
+  </div>
+  <div class="card shadow mb-4">
+    <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Team Activity Summary</h6></div>
+    <div class="card-body">
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover tablesorter">
+          <thead class="thead-light">
+            <tr>
+              <th>Team</th>
+              <th>Total</th>
+              <th>Completed</th>
+              <th>In Progress</th>
+              <th>Pending</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for team in selected_teams %}
+            <tr>
+              <td>{{ team.name }}</td>
+              <td>{{ summary[team.id]['total'] }}</td>
+              <td>{{ summary[team.id]['completed'] }}</td>
+              <td>{{ summary[team.id]['in_progress'] }}</td>
+              <td>{{ summary[team.id]['pending'] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center">No data</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

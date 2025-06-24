@@ -17,16 +17,16 @@
               <span class="badge badge-primary mr-2 mb-2 p-2 attr-badge" data-toggle="collapse" data-target="#node-edit-{{ loop.index }}" style="cursor:pointer;">{{ n }}</span>
               <div class="collapse" id="node-edit-{{ loop.index }}">
                 <form method="post" class="d-inline" action="{{ url_for('manage_team_dropdowns') }}">
+                  {{ form.hidden_tag() }}
                   <input type="hidden" name="form_action" value="edit_node">
                   <input type="hidden" name="old_value" value="{{ n }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="text" name="new_value" value="{{ n }}" class="form-control d-inline w-auto" required>
                   <button type="submit" class="btn btn-sm btn-success">Save</button>
                 </form>
                 <form method="post" class="d-inline" action="{{ url_for('manage_team_dropdowns') }}" onsubmit="return confirm('Delete this node?');">
+                  {{ form.hidden_tag() }}
                   <input type="hidden" name="form_action" value="delete_node">
                   <input type="hidden" name="value" value="{{ n }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                 </form>
               </div>
@@ -51,16 +51,16 @@
               <span class="badge badge-info mr-2 mb-2 p-2 attr-badge" data-toggle="collapse" data-target="#type-edit-{{ loop.index }}" style="cursor:pointer;">{{ t }}</span>
               <div class="collapse" id="type-edit-{{ loop.index }}">
                 <form method="post" class="d-inline" action="{{ url_for('manage_team_dropdowns') }}">
+                  {{ form.hidden_tag() }}
                   <input type="hidden" name="form_action" value="edit_type">
                   <input type="hidden" name="old_value" value="{{ t }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="text" name="new_value" value="{{ t }}" class="form-control d-inline w-auto" required>
                   <button type="submit" class="btn btn-sm btn-success">Save</button>
                 </form>
                 <form method="post" class="d-inline" action="{{ url_for('manage_team_dropdowns') }}" onsubmit="return confirm('Delete this activity type?');">
+                  {{ form.hidden_tag() }}
                   <input type="hidden" name="form_action" value="delete_type">
                   <input type="hidden" name="value" value="{{ t }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                 </form>
               </div>
@@ -94,16 +94,16 @@
               <span class="badge {{ badge_class }} mr-2 mb-2 p-2 attr-badge" data-toggle="collapse" data-target="#status-edit-{{ loop.index }}" style="cursor:pointer;">{{ s }}</span>
               <div class="collapse" id="status-edit-{{ loop.index }}">
                 <form method="post" class="d-inline" action="{{ url_for('manage_team_dropdowns') }}">
+                  {{ form.hidden_tag() }}
                   <input type="hidden" name="form_action" value="edit_status">
                   <input type="hidden" name="old_value" value="{{ s }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <input type="text" name="new_value" value="{{ s }}" class="form-control d-inline w-auto" required>
                   <button type="submit" class="btn btn-sm btn-success">Save</button>
                 </form>
                 <form method="post" class="d-inline" action="{{ url_for('manage_team_dropdowns') }}" onsubmit="return confirm('Delete this status?');">
+                  {{ form.hidden_tag() }}
                   <input type="hidden" name="form_action" value="delete_status">
                   <input type="hidden" name="value" value="{{ s }}">
-                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                   <button type="submit" class="btn btn-sm btn-danger">Delete</button>
                 </form>
               </div>
@@ -122,8 +122,8 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <form method="post" action="{{ url_for('manage_team_dropdowns') }}">
+        {{ form.hidden_tag() }}
         <input type="hidden" name="form_action" value="add_node">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-header">
           <h5 class="modal-title" id="addNodeModalLabel">Add Node</h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -150,8 +150,8 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <form method="post" action="{{ url_for('manage_team_dropdowns') }}">
+        {{ form.hidden_tag() }}
         <input type="hidden" name="form_action" value="add_type">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-header">
           <h5 class="modal-title" id="addActivityTypeModalLabel">Add Activity Type</h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -178,8 +178,8 @@
   <div class="modal-dialog" role="document">
     <div class="modal-content">
       <form method="post" action="{{ url_for('manage_team_dropdowns') }}">
+        {{ form.hidden_tag() }}
         <input type="hidden" name="form_action" value="add_status">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-header">
           <h5 class="modal-title" id="addStatusModalLabel">Add Status</h5>
           <button type="button" class="close" data-dismiss="modal" aria-label="Close">

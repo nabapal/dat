@@ -11,6 +11,10 @@
     <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='team_activities.css') }}" rel="stylesheet">
+    <!-- Add tablesorter JS and CSS at the end for correct order -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/css/theme.default.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
     {% block extra_css %}
 <style>
   /* Fully hide sidebar and expand content when .sidebar-hidden is on #wrapper */
@@ -135,15 +139,23 @@
 <script src="{{ url_for('static', filename='vendor/chart.js/Chart.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/datatables/jquery.dataTables.min.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.js') }}"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/datatables/dataTables.bootstrap4.min.css') }}">
+{% block extra_js %}
 <script>
-// Custom: Fully hide sidebar and expand content
 $(document).ready(function() {
-    // Remove broken isAuthenticated assignment
+    // Enable DataTables on dashboard table, hide search and length menu
+    $('#dataTable').DataTable({
+        paging: false,
+        info: false,
+        searching: false,
+        ordering: true,
+        order: []
+    });
     $('#sidebarToggle').on('click', function(e) {
         $('#wrapper').toggleClass('sidebar-hidden');
     });
 });
 </script>
-{% block extra_js %}{% endblock %}
+{% endblock %}
 </body>
 </html>

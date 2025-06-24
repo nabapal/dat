@@ -1,0 +1,27 @@
+{% macro status_badge(status) %}
+  {% set status_lower = status|lower %}
+  {% set badge_class = {
+    'completed': 'badge-success',
+    'in_progress': 'badge-warning',
+    'pending': 'badge-info',
+    'on_hold': 'badge-secondary',
+    'active': 'badge-primary',
+    'inactive': 'badge-dark',
+    'cancelled': 'badge-danger'
+  }[status_lower] if status_lower in ['completed','in_progress','pending','on_hold','active','inactive','cancelled'] else 'badge-light' %}
+  <span class="badge {{ badge_class }}">{{ status|capitalize }}</span>
+{% endmacro %}
+
+{% macro status_badge_pill(status) %}
+  {% set status_lower = status|lower %}
+  {% set badge_class = {
+    'completed': 'badge-success',
+    'in_progress': 'badge-warning',
+    'pending': 'badge-info',
+    'on_hold': 'badge-secondary',
+    'active': 'badge-primary',
+    'inactive': 'badge-dark',
+    'cancelled': 'badge-danger'
+  }[status_lower] if status_lower in ['completed','in_progress','pending','on_hold','active','inactive','cancelled'] else 'badge-light' %}
+  <span class="badge badge-pill {{ badge_class }}">{{ status|capitalize }}</span>
+{% endmacro %}

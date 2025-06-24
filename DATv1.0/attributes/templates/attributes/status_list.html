@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Statuses</h2>
+  <a class="btn btn-primary mb-2" href="{% url 'status_create' %}">Create New Status</a>
+  <ul class="list-group">
+    {% for status in statuses %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        <span>
+          {{ status.name }}
+          <span class="badge bg-{{ status.color }} ms-2">{{ status.color }}</span>
+        </span>
+        <span>
+          <a class="btn btn-sm btn-secondary" href="{% url 'status_edit' status.pk %}">Edit</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'status_delete' status.pk %}">Delete</a>
+        </span>
+      </li>
+    {% empty %}
+      <li class="list-group-item">No statuses found.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

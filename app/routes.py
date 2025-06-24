@@ -10,6 +10,7 @@ from flask_wtf import FlaskForm
 from wtforms import PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo
 from werkzeug.security import generate_password_hash
+from collections import Counter
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -37,13 +38,10 @@ def dashboard():
     status = request.args.get('status')
     # Get all activities for summary
     all_activities = Activity.query.join(Activity.assignees).filter(User.id == current_user.id).order_by(Activity.start_date.desc()).all()
-    # Build summary dict
-    summary = {
-        'total': len(all_activities),
-        'completed': sum(1 for a in all_activities if a.status == 'completed'),
-        'in_progress': sum(1 for a in all_activities if a.status == 'in_progress'),
-        'pending': sum(1 for a in all_activities if a.status == 'pending'),
-    }
+    # Dynamic summary: count all statuses
+    status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
+    summary = {'total': len(all_activities)}
+    summary.update(status_counter)
     # Filtered query for table
     query = Activity.query.join(Activity.assignees).filter(User.id == current_user.id)
     if status:
@@ -310,10 +308,7 @@ def manage_team_dropdowns():
     node_names = [n.name for n in Node.query.order_by(Node.name).all()]
     activity_types = [t.name for t in ActivityType.query.order_by(ActivityType.name).all()]
     statuses = [s.name for s in Status.query.order_by(Status.name).all()]
-    if request.method == 'POST':
-        if not request.form.get('csrf_token') or request.form.get('csrf_token') != str(form.csrf_token._value()):
-            flash('Invalid CSRF token.', 'danger')
-            return redirect(url_for('manage_team_dropdowns'))
+    if form.validate_on_submit():
         action = request.form.get('form_action')
         if action == 'edit_node':
             old_value = request.form.get('old_value')
@@ -423,6 +418,10 @@ def manage_team_dropdowns():
             else:
                 flash('No new value added (may already exist or be blank).', 'info')
         return redirect(url_for('manage_team_dropdowns'))
+    else:
+        if request.method == 'POST':
+            flash('Invalid CSRF token or form data.', 'danger')
+            return redirect(url_for('manage_team_dropdowns'))
     return render_template('manage_team_dropdowns.html', node_names=node_names, activity_types=activity_types, statuses=statuses, form=form)
 
 @app.route('/team_activities')

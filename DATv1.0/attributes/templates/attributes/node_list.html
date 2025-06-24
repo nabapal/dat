@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Nodes</h2>
+  <a class="btn btn-primary mb-2" href="{% url 'node_create' %}">Create New Node</a>
+  <ul class="list-group">
+    {% for node in nodes %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ node.name }}
+        <span>
+          <a class="btn btn-sm btn-secondary" href="{% url 'node_edit' node.pk %}">Edit</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'node_delete' node.pk %}">Delete</a>
+        </span>
+      </li>
+    {% empty %}
+      <li class="list-group-item">No nodes found.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}

@@ -7,7 +7,22 @@
     <a href="{{ url_for('add_activity') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-plus fa-sm text-white-50"></i> Add Activity</a>
   </div>
   <!-- Status Summary Row -->
+  {% set status_colors = {
+      'completed': 'success',
+      'in_progress': 'warning',
+      'pending': 'info',
+      'on_hold': 'secondary',
+      'up': 'primary'
+  } %}
+  {% set status_icons = {
+      'completed': 'fa-check',
+      'in_progress': 'fa-spinner',
+      'pending': 'fa-hourglass-half',
+      'on_hold': 'fa-pause-circle',
+      'up': 'fa-arrow-up'
+  } %}
   <div class="row mb-4">
+    <!-- Total Card -->
     <div class="col-xl-3 col-md-6 mb-4">
       <div class="card border-left-primary shadow h-100 py-2">
         <div class="card-body">
@@ -23,51 +38,26 @@
         </div>
       </div>
     </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-success shadow h-100 py-2">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Completed</div>
-              <a href="{{ url_for('dashboard', status='completed') }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ summary.completed }}</a>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-check fa-2x text-gray-300"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-warning shadow h-100 py-2">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">In Progress</div>
-              <a href="{{ url_for('dashboard', status='in_progress') }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ summary.in_progress }}</a>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-spinner fa-2x text-gray-300"></i>
+    <!-- Dynamic Status Cards -->
+    {% for status, count in summary.items() %}
+      {% if status != 'total' %}
+      <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-{{ status_colors.get(status, 'dark') }} shadow h-100 py-2">
+          <div class="card-body">
+            <div class="row no-gutters align-items-center">
+              <div class="col mr-2">
+                <div class="text-xs font-weight-bold text-{{ status_colors.get(status, 'dark') }} text-uppercase mb-1">{{ status.replace('_', ' ') }}</div>
+                <a href="{{ url_for('dashboard', status=status) }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ count }}</a>
+              </div>
+              <div class="col-auto">
+                <i class="fas {{ status_icons.get(status, 'fa-circle') }} fa-2x text-{{ status_colors.get(status, 'dark') }}"></i>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-info shadow h-100 py-2">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Pending</div>
-              <a href="{{ url_for('dashboard', status='pending') }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ summary.pending }}</a>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-hourglass-half fa-2x text-gray-300"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      {% endif %}
+    {% endfor %}
   </div>
   <!-- Search Only -->
   <div class="card shadow mb-4">
@@ -83,7 +73,7 @@
         </div>
       </form>
       <div class="table-responsive">
-        <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+        <table class="table table-bordered table-hover tablesorter" id="dataTable" width="100%" cellspacing="0">
           <thead class="thead-light">
             <tr>
               <th>Activity ID</th>

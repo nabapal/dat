@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CSRF Error</title>
+    <link href="{{ url_for('static', filename='css/sb-admin-2.min.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="alert alert-danger">
+            <h4 class="alert-heading">CSRF Error</h4>
+            <p>{{ reason }}</p>
+            <hr>
+            <p class="mb-0">If you see this page, please copy the URL and contact your developer with details.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="row">
+  <div class="col-lg-4 mb-4">
+    <div class="card shadow">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Nodes</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'node_create' %}" class="mb-3">
+          {% csrf_token %}
+          {{ node_form.name|add_class:'form-control form-control-user mb-2' }}
+          <button type="submit" class="btn btn-primary btn-user btn-block">Add Node</button>
+        </form>
+        <ul class="list-group">
+          {% for node in nodes %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ node.name }}
+              <span>
+                <a class="btn btn-sm btn-secondary" href="{% url 'node_edit' node.pk %}">Edit</a>
+                <a class="btn btn-sm btn-danger" href="{% url 'node_delete' node.pk %}">Delete</a>
+              </span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">No nodes found.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4 mb-4">
+    <div class="card shadow">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Activity Types</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'activitytype_create' %}" class="mb-3">
+          {% csrf_token %}
+          {{ activitytype_form.name|add_class:'form-control form-control-user mb-2' }}
+          <button type="submit" class="btn btn-primary btn-user btn-block">Add Type</button>
+        </form>
+        <ul class="list-group">
+          {% for type in types %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              {{ type.name }}
+              <span>
+                <a class="btn btn-sm btn-secondary" href="{% url 'activitytype_edit' type.pk %}">Edit</a>
+                <a class="btn btn-sm btn-danger" href="{% url 'activitytype_delete' type.pk %}">Delete</a>
+              </span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">No activity types found.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4 mb-4">
+    <div class="card shadow">
+      <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Statuses</h6></div>
+      <div class="card-body">
+        <form method="post" action="{% url 'status_create' %}" class="mb-3">
+          {% csrf_token %}
+          {{ status_form.name|add_class:'form-control form-control-user mb-2' }}
+          {{ status_form.color|add_class:'form-control form-control-user mb-2' }}
+          <button type="submit" class="btn btn-primary btn-user btn-block">Add Status</button>
+        </form>
+        <ul class="list-group">
+          {% for status in statuses %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <span>{{ status.name }} <span class="badge bg-{{ status.color }} ms-2">{{ status.color }}</span></span>
+              <span>
+                <a class="btn btn-sm btn-secondary" href="{% url 'status_edit' status.pk %}">Edit</a>
+                <a class="btn btn-sm btn-danger" href="{% url 'status_delete' status.pk %}">Delete</a>
+              </span>
+            </li>
+          {% empty %}
+            <li class="list-group-item">No statuses found.</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

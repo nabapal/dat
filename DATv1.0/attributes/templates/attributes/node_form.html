@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>{% if edit %}Edit Node{% else %}Create Node{% endif %}</h2>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-success">{% if edit %}Update{% else %}Create{% endif %}</button>
+    <a class="btn btn-secondary" href="{% url 'node_list' %}">Cancel</a>
+  </form>
+{% endblock %}

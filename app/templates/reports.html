@@ -1,6 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Activity Reports{% endblock %}
 {% block content %}
+{% set status_icons = {
+    'completed': 'fa-check',
+    'in_progress': 'fa-spinner',
+    'pending': 'fa-hourglass-half',
+    'on_hold': 'fa-pause-circle',
+    'up': 'fa-arrow-up'
+} %}
 <div class="container-fluid">
   <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Team Summary Report
@@ -34,7 +41,7 @@
               <div class="h5 mb-0 font-weight-bold text-gray-800">{{ count }}</div>
             </div>
             <div class="col-auto">
-              <i class="fas fa-clipboard-list fa-2x text-gray-300"></i>
+              <i class="fas {{ status_icons.get(status, 'fa-circle') }} fa-2x text-{{ 'success' if status=='completed' else 'warning' if status=='in_progress' else 'info' if status=='pending' else 'secondary' }}"></i>
             </div>
           </div>
         </div>
@@ -48,7 +55,7 @@
     <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Activities by Node</h6></div>
     <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-bordered table-hover">
+        <table class="table table-bordered table-hover" id="reportsTable">
           <thead class="thead-light"><tr><th>Node</th><th>Status</th><th>Activities</th></tr></thead>
           <tbody>
             {% for node, stat in node_status_update.items() %}
@@ -72,7 +79,7 @@
     <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Team Member Status</h6></div>
     <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-bordered table-hover">
+        <table class="table table-bordered table-hover" id="reportsTable">
           <thead class="thead-light">
             <tr>
               <th>Member</th>
@@ -102,7 +109,7 @@
     <div class="card-header py-3"><h6 class="m-0 font-weight-bold text-primary">Activities by Type</h6></div>
     <div class="card-body">
       <div class="table-responsive">
-        <table class="table table-bordered table-hover">
+        <table class="table table-bordered table-hover" id="reportsTable">
           <thead class="thead-light"><tr><th>Type</th><th>Status</th><th>Activities</th><th>Days Contributed</th></tr></thead>
           <tbody>
             {% for type, stat in type_status_update.items() %}
@@ -127,4 +134,17 @@
     ...existing code for non-lead report...
   {% endif %}
 </div>
+{% endblock %}
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#reportsTable').DataTable({
+        paging: false,
+        info: false,
+        searching: false,
+        ordering: true,
+        order: []
+    });
+});
+</script>
 {% endblock %}

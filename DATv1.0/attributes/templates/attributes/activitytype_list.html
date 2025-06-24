@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+  <h2>Activity Types</h2>
+  <a class="btn btn-primary mb-2" href="{% url 'activitytype_create' %}">Create New Activity Type</a>
+  <ul class="list-group">
+    {% for type in types %}
+      <li class="list-group-item d-flex justify-content-between align-items-center">
+        {{ type.name }}
+        <span>
+          <a class="btn btn-sm btn-secondary" href="{% url 'activitytype_edit' type.pk %}">Edit</a>
+          <a class="btn btn-sm btn-danger" href="{% url 'activitytype_delete' type.pk %}">Delete</a>
+        </span>
+      </li>
+    {% empty %}
+      <li class="list-group-item">No activity types found.</li>
+    {% endfor %}
+  </ul>
+{% endblock %}
