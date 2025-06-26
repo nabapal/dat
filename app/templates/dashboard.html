@@ -7,20 +7,6 @@
     <a href="{{ url_for('add_activity') }}" class="d-none d-sm-inline-block btn btn-sm btn-primary shadow-sm"><i class="fas fa-plus fa-sm text-white-50"></i> Add Activity</a>
   </div>
   <!-- Status Summary Row -->
-  {% set status_colors = {
-      'completed': 'success',
-      'in_progress': 'warning',
-      'pending': 'info',
-      'on_hold': 'secondary',
-      'up': 'primary'
-  } %}
-  {% set status_icons = {
-      'completed': 'fa-check',
-      'in_progress': 'fa-spinner',
-      'pending': 'fa-hourglass-half',
-      'on_hold': 'fa-pause-circle',
-      'up': 'fa-arrow-up'
-  } %}
   <div class="row mb-4">
     <!-- Total Card -->
     <div class="col-xl-3 col-md-6 mb-4">
@@ -42,15 +28,15 @@
     {% for status, count in summary.items() %}
       {% if status != 'total' %}
       <div class="col-xl-3 col-md-6 mb-4">
-        <div class="card border-left-{{ status_colors.get(status, 'dark') }} shadow h-100 py-2">
+        <div class="card border-left-{{ status_color_map.get(status, 'dark') }} shadow h-100 py-2">
           <div class="card-body">
             <div class="row no-gutters align-items-center">
               <div class="col mr-2">
-                <div class="text-xs font-weight-bold text-{{ status_colors.get(status, 'dark') }} text-uppercase mb-1">{{ status.replace('_', ' ') }}</div>
+                <div class="text-xs font-weight-bold text-{{ status_color_map.get(status, 'dark') }} text-uppercase mb-1">{{ status.replace('_', ' ') }}</div>
                 <a href="{{ url_for('dashboard', status=status) }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ count }}</a>
               </div>
               <div class="col-auto">
-                <i class="fas {{ status_icons.get(status, 'fa-circle') }} fa-2x text-{{ status_colors.get(status, 'dark') }}"></i>
+                <i class="fas {{ status_icon_map.get(status, 'fa-circle') }} fa-2x text-{{ status_color_map.get(status, 'dark') }}"></i>
               </div>
             </div>
           </div>
@@ -105,7 +91,7 @@
               <td class="text-truncate">{{ activity.node_name }}</td>
               <td class="text-truncate">{{ activity.activity_type }}</td>
               <td>
-                <span class="badge {% set status = activity.status|lower %}{% if status == 'completed' %}badge-success{% elif status == 'in_progress' %}badge-warning{% elif status == 'pending' %}badge-info{% elif status == 'on_hold' %}badge-secondary{% elif status == 'active' %}badge-primary{% elif status == 'inactive' %}badge-dark{% elif status == 'cancelled' %}badge-danger{% else %}badge-light{% endif %}">
+                <span class="badge badge-{{ status_color_map.get(activity.status|lower, 'light') }}">
                   {{ activity.status|capitalize }}
                 </span>
               </td>

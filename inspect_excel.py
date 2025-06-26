@@ -96,12 +96,19 @@ with app.app_context():
                     if isinstance(col, datetime):
                         update_text = df_updates.loc[idx, col]
                         if pd.notnull(update_text):
-                            update = ActivityUpdate(
+                            # Prevent duplicate updates
+                            existing_update = ActivityUpdate.query.filter_by(
                                 activity_id=activity.id,
-                                update_text=str(update_text),
                                 update_date=col,
                                 updated_by=user.id
-                            )
-                            db.session.add(update)
+                            ).first()
+                            if not existing_update:
+                                update = ActivityUpdate(
+                                    activity_id=activity.id,
+                                    update_text=str(update_text),
+                                    update_date=col,
+                                    updated_by=user.id
+                                )
+                                db.session.add(update)
                 db.session.commit()
 print('All user Excel files imported.')

@@ -88,6 +88,19 @@
                 <!-- Topbar Navbar -->
                 <ul class="navbar-nav ml-auto">
                     {% if current_user.is_authenticated %}
+                        <!-- Financial Year Dropdown -->
+                        <li class="nav-item dropdown no-arrow mr-3">
+                          <form method="post" action="{{ url_for('set_financial_year') }}" class="form-inline my-2 my-lg-0">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <select name="financial_year" class="form-control form-control-sm mr-2" onchange="this.form.submit()">
+                              {% for fy in available_financial_years %}
+                                <option value="{{ fy }}" {% if fy == selected_financial_year %}selected{% endif %}>FY{{ fy }}</option>
+                              {% endfor %}
+                            </select>
+                            <noscript><button type="submit" class="btn btn-sm btn-primary">Go</button></noscript>
+                          </form>
+                        </li>
+                        <!-- End Financial Year Dropdown -->
                         <li class="nav-item dropdown no-arrow">
                             <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                 <span class="mr-2 d-none d-lg-inline text-gray-600 small">{{ current_user.username }}</span>

@@ -1,9 +1,9 @@
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from . import app, db
 from .models import User, Activity, ActivityUpdate, Node, ActivityType, Status, Team
 from .forms import LoginForm, ActivityForm, DummyDropdownForm, UpdateForm
-from datetime import datetime
+from datetime import datetime, timedelta
 from wtforms import SelectField, SelectMultipleField
 from wtforms.validators import DataRequired
 from flask_wtf import FlaskForm
@@ -11,6 +11,7 @@ from wtforms import PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo
 from werkzeug.security import generate_password_hash
 from collections import Counter
+from .remove_user_route import *
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -36,14 +37,24 @@ def dashboard():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '', type=str)
     status = request.args.get('status')
-    # Get all activities for summary
-    all_activities = Activity.query.join(Activity.assignees).filter(User.id == current_user.id).order_by(Activity.start_date.desc()).all()
+    # Financial year filter
+    fy = session.get('financial_year')
+    if not fy:
+        available_fys = [f for f in inject_financial_years()['available_financial_years']]
+        fy = available_fys[-2] if len(available_fys) > 1 else available_fys[-1]
+    start_date, end_date = get_financial_year_dates(fy)
+    # Get all activities for summary (filtered by FY)
+    all_activities = Activity.query.join(Activity.assignees) \
+        .filter(User.id == current_user.id) \
+        .filter(Activity.start_date >= start_date, Activity.start_date <= end_date) \
+        .order_by(Activity.start_date.desc()).all()
     # Dynamic summary: count all statuses
     status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
     summary = {'total': len(all_activities)}
     summary.update(status_counter)
     # Filtered query for table
     query = Activity.query.join(Activity.assignees).filter(User.id == current_user.id)
+    query = query.filter(Activity.start_date >= start_date, Activity.start_date <= end_date)
     if status:
         query = query.filter(Activity.status == status)
     elif search:
@@ -52,7 +63,6 @@ def dashboard():
             query = query.filter(Activity.status == search.lower())
         else:
             query = query.filter(
-                (Activity.activity_id.ilike(f'%{search}%')) |
                 (Activity.details.ilike(f'%{search}%')) |
                 (Activity.node_name.ilike(f'%{search}%')) |
                 (Activity.activity_type.ilike(f'%{search}%'))
@@ -63,7 +73,32 @@ def dashboard():
     for activity in activities.items:
         update_days = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=activity.id).all())
         activity.update_days_count = len(update_days)
-    return render_template('dashboard.html', activities=activities, search=search, summary=summary)
+    # Build status color and icon maps
+    statuses = Status.query.all()
+    default_colors = {
+        'completed': 'success',
+        'in_progress': 'warning',
+        'pending': 'info',
+        'on_hold': 'secondary',
+        'up': 'primary'
+    }
+    default_icons = {
+        'completed': 'fa-check',
+        'in_progress': 'fa-spinner',
+        'pending': 'fa-hourglass-half',
+        'on_hold': 'fa-pause-circle',
+        'up': 'fa-arrow-up'
+    }
+    status_color_map = {s.name.lower(): getattr(s, 'color', default_colors.get(s.name.lower(), 'dark')) for s in statuses}
+    status_icon_map = {s.name.lower(): getattr(s, 'icon', default_icons.get(s.name.lower(), 'fa-circle')) for s in statuses}
+    return render_template(
+        'dashboard.html',
+        activities=activities,
+        search=search,
+        summary=summary,
+        status_color_map=status_color_map,
+        status_icon_map=status_icon_map
+    )
 
 @app.route('/add_activity', methods=['GET', 'POST'])
 @login_required
@@ -85,10 +120,18 @@ def add_activity():
         form.assigned_to.choices = [(u.id, u.username) for u in team_members]
     else:
         form.assigned_to.choices = [(current_user.id, current_user.username)]
-        form.assigned_to.data = [current_user.id]
+        if not form.assigned_to.data:
+            form.assigned_to.data = [current_user.id]
+    # Set default values
+    form.start_date.data = datetime.now().date()
+    form.end_date.data = (datetime.now() + timedelta(days=7)).date()
     if form.validate_on_submit():
+        # Generate unique activity_id: timestamp + incremental number
+        timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+        activity_count = Activity.query.count() + 1
+        generated_activity_id = f"{timestamp}-{activity_count}"
         activity = Activity(
-            activity_id=f"ACT-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            activity_id=generated_activity_id,
             details=form.details.data,
             node_name=form.node_name.data,
             activity_type=form.activity_type.data,
@@ -98,8 +141,10 @@ def add_activity():
             user_id=current_user.id,
             assigner_id=current_user.id
         )
-        # Assign multiple users
+        # Always assign the current user if no one is selected
         assignees = User.query.filter(User.id.in_(form.assigned_to.data)).all()
+        if not assignees:
+            assignees = [current_user]
         activity.assignees.extend(assignees)
         db.session.add(activity)
         db.session.commit()
@@ -225,6 +270,13 @@ def reports():
     team_members = []
     status_summary = node_summary = type_summary = member_summary = None
     node_status_update = member_status_update = type_status_update = None
+    # Financial year filter for reports
+    fy = session.get('financial_year')
+    if fy:
+        start_date, end_date = get_financial_year_dates(fy)
+    else:
+        now = datetime.now()
+        start_date, end_date = get_financial_year_dates(f"{str(now.year-1)[-2:]}-{str(now.year)[-2:]}")
     # Team selection for team_lead and super_lead
     if current_user.role in ['team_lead', 'super_lead']:
         # Get all teams for this user
@@ -238,13 +290,15 @@ def reports():
         assignee_id = request.args.get('assignee', type=int)
         status = request.args.get('status', '')
         query = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members]))
+        query = query.filter(Activity.start_date >= start_date, Activity.start_date <= end_date)
         if assignee_id:
             query = query.filter(User.id == assignee_id)
         if status:
             query = query.filter(Activity.status == status)
         activities = query.all()
         # Build summary for all team activities (not just filtered)
-        all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).all()
+        all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members]))
+        all_activities = [a for a in all_activities if start_date <= a.start_date <= end_date]
         status_summary = Counter([a.status for a in all_activities])
         node_summary = Counter([a.node_name for a in all_activities if a.node_name])
         type_summary = Counter([a.activity_type for a in all_activities if a.activity_type])
@@ -278,7 +332,8 @@ def reports():
             'pending': sum(1 for a in all_activities if a.status == 'pending'),
         }
     else:
-        activities = Activity.query.join(Activity.assignees).filter(User.id == current_user.id).all()
+        activities = Activity.query.join(Activity.assignees).filter(User.id == current_user.id)
+        activities = activities.filter(Activity.start_date >= start_date, Activity.start_date <= end_date).all()
         summary = {
             'total': len(activities),
             'completed': sum(1 for a in activities if a.status == 'completed'),
@@ -446,7 +501,14 @@ def team_activities():
     node_name = request.args.get('node_name')
     sort = request.args.get('sort', 'start_date')
     direction = request.args.get('direction', 'desc')
+    # Financial year filter
+    fy = session.get('financial_year')
+    if not fy:
+        available_fys = [f for f in inject_financial_years()['available_financial_years']]
+        fy = available_fys[-2] if len(available_fys) > 1 else available_fys[-1]
+    start_date, end_date = get_financial_year_dates(fy)
     query = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct()
+    query = query.filter(Activity.start_date >= start_date, Activity.start_date <= end_date)
     if assignee:
         query = query.filter(User.id == assignee)
     if status:
@@ -464,7 +526,8 @@ def team_activities():
     for activity in activities.items:
         update_days = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=activity.id).all())
         activity.update_days_count = len(update_days)
-    all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct().all()
+    all_activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct()
+    all_activities = all_activities.filter(Activity.start_date >= start_date, Activity.start_date <= end_date).all()
     summary = {
         'total': len(all_activities),
         'completed': sum(1 for a in all_activities if a.status == 'completed'),
@@ -598,17 +661,19 @@ def signup():
 def team_management():
     from .models import User, Team
     # Determine which users and teams the current user can manage
-    if current_user.role in ['super_lead', 'admin']:
+    if current_user.role == 'super_lead':
         managed_users = User.query.all()
-        all_teams = Team.query.order_by(Team.name).all()
+        all_teams = Team.query.all()
     elif current_user.role == 'team_lead':
-        # Team leads manage their team members only
-        team_ids = [t.id for t in current_user.teams]
-        managed_users = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
         all_teams = current_user.teams
+        managed_users = []
+        for team in all_teams:
+            managed_users.extend(team.users)
+        # Remove duplicates
+        managed_users = list(set(managed_users))
     else:
-        flash('Access denied', 'danger')
-        return redirect(url_for('dashboard'))
+        managed_users = [current_user]
+        all_teams = current_user.teams
 
     # Handle add member
     if request.method == 'POST' and request.form.get('form_action') == 'add_member':
@@ -697,16 +762,27 @@ def team_management():
             flash('User not found.', 'danger')
         return redirect(url_for('team_management'))
 
+    # --- FY filter logic ---
+    fy = session.get('financial_year')
+    if fy:
+        start_date, end_date = get_financial_year_dates(fy)
+    else:
+        now = datetime.now()
+        start_date, end_date = get_financial_year_dates(f"{str(now.year-1)[-2:]}-{str(now.year)[-2:]}")
+    # --- END FY filter logic ---
     # For each managed user, set has_activities flag for template
     for u in managed_users:
-        u.has_activities = Activity.query.join(Activity.assignees).filter(Activity.assignees.any(id=u.id)).count() > 0
-
+        u.has_activities = Activity.query.join(Activity.assignees)\
+            .filter(Activity.assignees.any(id=u.id))\
+            .filter(Activity.start_date >= start_date, Activity.start_date <= end_date).count() > 0
     # Build team activity summary for the team management page
     team_summaries = {}
     all_statuses = set()
     for team in all_teams:
         team_members = team.users
-        activities = Activity.query.join(Activity.assignees).filter(User.id.in_([m.id for m in team_members])).distinct().all()
+        activities = Activity.query.join(Activity.assignees)\
+            .filter(User.id.in_([m.id for m in team_members]))\
+            .filter(Activity.start_date >= start_date, Activity.start_date <= end_date).distinct().all()
         status_counts = {}
         for a in activities:
             status_counts[a.status] = status_counts.get(a.status, 0) + 1
@@ -741,21 +817,34 @@ def approve_user(user_id):
     flash('User approved.', 'success')
     return redirect(url_for('team_management'))
 
-@app.route('/remove_user/<int:user_id>', methods=['POST'])
-@login_required
-def remove_user(user_id):
-    user = User.query.get_or_404(user_id)
-    # Only allow removal if current_user is a team lead for a member, or super lead/admin
-    if user.role == 'member' and current_user.role == 'team_lead':
-        if not set([t.id for t in current_user.teams]).intersection([t.id for t in user.teams]):
-            flash('Not authorized to remove this user.', 'danger')
-            return redirect(url_for('team_management'))
-    elif current_user.role in ['super_lead', 'admin']:
-        pass
+def get_financial_year_dates(fy_str):
+    # fy_str: e.g. '23-24' or '24-25'
+    start_year = int('20' + fy_str.split('-')[0])
+    start_date = datetime(start_year, 4, 1)
+    end_date = datetime(start_year + 1, 3, 31, 23, 59, 59)
+    return start_date, end_date
+
+@app.route('/set_financial_year', methods=['POST'])
+def set_financial_year():
+    fy = request.form.get('financial_year')
+    session['financial_year'] = fy
+    return redirect(request.referrer or url_for('dashboard'))
+
+@app.context_processor
+def inject_financial_years():
+    # Find min and max years from Activity data, fallback to current year
+    min_year = db.session.query(db.func.min(Activity.start_date)).scalar()
+    max_year = db.session.query(db.func.max(Activity.start_date)).scalar()
+    if min_year and max_year:
+        min_fy = min_year.year if min_year.month >= 4 else min_year.year - 1
+        max_fy = max_year.year if max_year.month >= 4 else max_year.year - 1
+        years = list(range(min_fy, max_fy + 1))  # +1, not +2
     else:
-        flash('Not authorized to remove this user.', 'danger')
-        return redirect(url_for('team_management'))
-    db.session.delete(user)
-    db.session.commit()
-    flash('User removed.', 'success')
-    return redirect(url_for('team_management'))
+        now = datetime.now()
+        years = [now.year - 1, now.year]
+    available_fys = [f"{str(y)[-2:]}-{str(y+1)[-2:]}" for y in years]
+    selected_fy = session.get('financial_year', available_fys[-1])
+    return dict(
+        available_financial_years=available_fys,
+        selected_financial_year=selected_fy
+    )

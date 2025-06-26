@@ -1,25 +1,17 @@
-import click
 from app import app, db
 from app.models import User, Node, ActivityType, Status, Team
+import click
 
 @app.cli.command('seed_demo')
 def seed_demo():
-    """Remove all data, then seed the database with teams, users, nodes, activity types, and statuses."""
-    # Remove all data
-    db.session.execute('DELETE FROM user_teams')
-    db.session.execute('DELETE FROM activity_assignees')
-    db.session.execute('DELETE FROM activity_update')
-    db.session.execute('DELETE FROM activity')
-    User.query.delete()
-    Team.query.delete()
-    Node.query.delete()
-    ActivityType.query.delete()
-    Status.query.delete()
-    db.session.commit()
+    """Drop all tables, recreate them, then seed the database with teams, users, nodes, activity types, and statuses."""
+    # Drop and recreate all tables
+    db.drop_all()
+    db.create_all()
 
     # Create teams
     team_ipse = Team(name='IPSE')
-    team_telco = Team(name='Teclo')
+    team_telco = Team(name='Telco')
     db.session.add_all([team_ipse, team_telco])
     db.session.commit()
 
@@ -44,7 +36,7 @@ def seed_demo():
         User(username='Dilpreet', password_hash='Dilpreet', role='member', is_active=True),
         User(username='Ronak', password_hash='Ronak', role='member', is_active=True),
     ]
-    # Assign first 5 to IPSE, rest to Teclo
+    # Assign first 5 to IPSE, rest to Telco
     for m in members[:5]:
         m.teams.append(team_ipse)
     for m in members[5:]:
@@ -78,4 +70,4 @@ def seed_demo():
         db.session.add(Status(name=s))
     db.session.commit()
 
-    print('All data removed. Teams, users (including naba and anup), nodes, activity types, and statuses seeded.')
+    print('All tables dropped and recreated. Teams, users (including naba and anup), nodes, activity types, and statuses seeded.')
