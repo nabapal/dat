@@ -3,10 +3,12 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect
 from flask_migrate import Migrate
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///activity_tracker.db'
+# Use absolute path for SQLite DB
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.dirname(__file__), 'activity_tracker.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -17,12 +19,6 @@ migrate = Migrate(app, db)
 from . import routes
 from app import cli  # Register CLI commands
 from .models import User
-
-# Register CLI commands if running as main app
-try:
-    import seed_demo
-except ImportError:
-    pass
 
 @login_manager.user_loader
 def load_user(user_id):

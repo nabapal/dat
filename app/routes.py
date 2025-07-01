@@ -9,7 +9,7 @@ from wtforms.validators import DataRequired
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, SubmitField
 from wtforms.validators import DataRequired, EqualTo
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 from collections import Counter
 from .remove_user_route import *
 
@@ -20,7 +20,7 @@ def index():
     form = LoginForm()
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
-        if user and user.password_hash == form.password.data:
+        if user and check_password_hash(user.password_hash, form.password.data):
             if not user.is_active:
                 flash('Your account is pending admin approval.', 'warning')
                 return render_template('login.html', form=form)
@@ -832,6 +832,9 @@ def set_financial_year():
 
 @app.context_processor
 def inject_financial_years():
+    # Debug: print DB file and tables
+    print('DB file in use:', db.engine.url)
+    print('Tables:', db.engine.table_names())
     # Find min and max years from Activity data, fallback to current year
     min_year = db.session.query(db.func.min(Activity.start_date)).scalar()
     max_year = db.session.query(db.func.max(Activity.start_date)).scalar()

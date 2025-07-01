@@ -1,7 +1,10 @@
 #!/bin/bash
-# Run the Flask Daily Activity Tracker app
+# Only start the Flask app, do NOT reseed the database every time
 
+set -e
+
+# Activate virtual environment
 source venv/bin/activate
-export FLASK_APP=app
-export FLASK_ENV=development
-flask run --host=0.0.0.0 --port=5004
+
+# Start the Flask app on port 5004
+python3 run.py --port=5004
