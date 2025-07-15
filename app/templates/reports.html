@@ -145,6 +145,9 @@ $(document).ready(function() {
         ordering: true,
         order: []
     });
+    $('#sidebarToggle').on('click', function(e) {
+        $('#wrapper').toggleClass('sidebar-hidden');
+    });
 });
 </script>
 {% endblock %}

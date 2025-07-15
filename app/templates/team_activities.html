@@ -27,7 +27,7 @@
     </select>
   </form>
   {% endif %}
-  <!-- Status Summary Row -->
+  <!-- Status Summary Row (DASHBOARD STYLE) -->
   <div class="row mb-4">
     <div class="col-xl-3 col-md-6 mb-4">
       <div class="card border-left-primary shadow h-100 py-2">
@@ -44,51 +44,25 @@
         </div>
       </div>
     </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-success shadow h-100 py-2">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Completed</div>
-              <a href="{{ url_for('team_activities', assignee=request.args.get('assignee', ''), status='completed') }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ summary.completed }}</a>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-check fa-2x text-gray-300"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-warning shadow h-100 py-2">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">In Progress</div>
-              <a href="{{ url_for('team_activities', assignee=request.args.get('assignee', ''), status='in_progress') }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ summary.in_progress }}</a>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-spinner fa-2x text-gray-300"></i>
+    {% for status, count in summary.items() %}
+      {% if status != 'total' %}
+      <div class="col-xl-3 col-md-6 mb-4">
+        <div class="card border-left-{{ status_color_map.get(status, 'dark') }} shadow h-100 py-2">
+          <div class="card-body">
+            <div class="row no-gutters align-items-center">
+              <div class="col mr-2">
+                <div class="text-xs font-weight-bold text-{{ status_color_map.get(status, 'dark') }} text-uppercase mb-1">{{ status.replace('_', ' ') }}</div>
+                <a href="{{ url_for('team_activities', status=status) }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ count }}</a>
+              </div>
+              <div class="col-auto">
+                <i class="fas {{ status_icon_map.get(status, 'fa-circle') }} fa-2x text-{{ status_color_map.get(status, 'dark') }}"></i>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-    <div class="col-xl-3 col-md-6 mb-4">
-      <div class="card border-left-info shadow h-100 py-2">
-        <div class="card-body">
-          <div class="row no-gutters align-items-center">
-            <div class="col mr-2">
-              <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Pending</div>
-              <a href="{{ url_for('team_activities', assignee=request.args.get('assignee', ''), status='pending') }}" class="h5 mb-0 font-weight-bold text-gray-800 text-decoration-none">{{ summary.pending }}</a>
-            </div>
-            <div class="col-auto">
-              <i class="fas fa-hourglass-half fa-2x text-gray-300"></i>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+      {% endif %}
+    {% endfor %}
   </div>
   <!-- Team Members Row (with team lead included) -->
   {% if team_members %}
@@ -153,9 +127,11 @@
                 {% endfor %}
               </td>
               <td>
-                <span class="badge {% set status = activity.status|lower %}{% if status == 'completed' %}badge-success{% elif status == 'in_progress' %}badge-warning{% elif status == 'pending' %}badge-info{% elif status == 'on_hold' %}badge-secondary{% elif status == 'active' %}badge-primary{% elif status == 'inactive' %}badge-dark{% elif status == 'cancelled' %}badge-danger{% else %}badge-light{% endif %}">
-                  {{ activity.status|capitalize }}
-                </span>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                  <span class="badge {% set status = activity.status|lower %}{% if status == 'completed' %}badge-success{% elif status == 'in_progress' %}badge-warning{% elif status == 'pending' %}badge-info{% elif status == 'on_hold' %}badge-secondary{% elif status == 'active' %}badge-primary{% elif status == 'inactive' %}badge-dark{% elif status == 'cancelled' %}badge-danger{% else %}badge-light{% endif %} mr-1">
+                    {{ activity.status|capitalize }}
+                  </span>
+                </div>
               </td>
               <td class="text-truncate">{{ activity.node_name }}</td>
               <td class="text-truncate">{{ activity.activity_type }}</td>
@@ -201,11 +177,34 @@
                 <li class="page-item {% if not activities.has_prev %}disabled{% endif %}">
                   <a class="page-link" href="{{ url_for('team_activities', page=activities.prev_num, search=request.args.get('search', ''), per_page=activities.per_page, assignee=request.args.get('assignee', ''), activity_type=request.args.get('activity_type', ''), node_name=request.args.get('node_name', ''), status=request.args.get('status', '')) }}">Previous</a>
                 </li>
-                {% for p in range(1, activities.pages + 1) %}
-                <li class="page-item {% if p == activities.page %}active{% endif %}">
-                  <a class="page-link" href="{{ url_for('team_activities', page=p, search=request.args.get('search', ''), per_page=activities.per_page, assignee=request.args.get('assignee', ''), activity_type=request.args.get('activity_type', ''), node_name=request.args.get('node_name', ''), status=request.args.get('status', '')) }}">{{ p }}</a>
-                </li>
+                {% set max_visible_pages = 5 %}
+                {% set half_visible = 2 %}
+                {% set start_page = [1, activities.page - half_visible]|max %}
+                {% set end_page = [activities.pages, start_page + max_visible_pages - 1]|min %}
+                {% set start_page = [1, end_page - max_visible_pages + 1]|max %}
+                {% if start_page > 1 %}
+                  <li class="page-item">
+                    <a class="page-link" href="{{ url_for('team_activities', page=1, search=request.args.get('search', ''), per_page=activities.per_page, assignee=request.args.get('assignee', ''), activity_type=request.args.get('activity_type', ''), node_name=request.args.get('node_name', ''), status=request.args.get('status', '')) }}">1</a>
+                  </li>
+                  {% if start_page > 2 %}
+                    <li class="page-item disabled">
+                      <span class="page-link">...</span>
+                    </li>
+                  {% endif %}
+                {% endif %}
+                {% for p in range(start_page, end_page + 1) %}
+                  <li class="page-item {% if p == activities.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('team_activities', page=p, search=request.args.get('search', ''), per_page=activities.per_page, assignee=request.args.get('assignee', ''), activity_type=request.args.get('activity_type', ''), node_name=request.args.get('node_name', ''), status=request.args.get('status', '')) }}">{{ p }}</a>
+                  </li>
                 {% endfor %}
+                {% if end_page < activities.pages %}
+                  <li class="page-item disabled">
+                    <span class="page-link">...</span>
+                  </li>
+                  <li class="page-item">
+                    <a class="page-link" href="{{ url_for('team_activities', page=activities.pages, search=request.args.get('search', ''), per_page=activities.per_page, assignee=request.args.get('assignee', ''), activity_type=request.args.get('activity_type', ''), node_name=request.args.get('node_name', ''), status=request.args.get('status', '')) }}">{{ activities.pages }}</a>
+                  </li>
+                {% endif %}
                 <li class="page-item {% if not activities.has_next %}disabled{% endif %}">
                   <a class="page-link" href="{{ url_for('team_activities', page=activities.next_num, search=request.args.get('search', ''), per_page=activities.per_page, assignee=request.args.get('assignee', ''), activity_type=request.args.get('activity_type', ''), node_name=request.args.get('node_name', ''), status=request.args.get('status', '')) }}">Next</a>
                 </li>
@@ -227,6 +226,9 @@ $(document).ready(function() {
         searching: false,
         ordering: true,
         order: []
+    });
+    $('#sidebarToggle').on('click', function(e) {
+        $('#wrapper').toggleClass('sidebar-hidden');
     });
 });
 </script>

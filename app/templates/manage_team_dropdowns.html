@@ -221,5 +221,8 @@
   $(function () {
     $('[data-toggle="tooltip"]').tooltip();
   });
+  $('#sidebarToggle').on('click', function(e) {
+    $('#wrapper').toggleClass('sidebar-hidden');
+  });
 </script>
 {% endblock %}

@@ -1,0 +1,105 @@
+/* GLOBAL COMPACT DASHBOARD STYLES */
+html, body, .container-fluid, .card, .table, .form-control, .btn, .badge, .pagination, .input-group, .navbar, .sidebar, .sidebar .nav-item, .sidebar .nav-link {
+  font-size: 13px !important;
+}
+body, .container-fluid {
+  padding: 0.5rem !important;
+}
+h1, h2, h3, h4, h5, h6 {
+  font-size: 1.1em !important;
+  margin-bottom: 0.5rem !important;
+}
+.card, .card-body {
+  padding: 0.6rem 0.8rem !important;
+  margin-bottom: 0.7rem !important;
+  border-radius: 0.4rem !important;
+}
+.table th, .table td {
+  font-size: 12px !important;
+  padding: 0.18rem 0.3rem !important;
+  vertical-align: middle !important;
+}
+.table thead th {
+  font-size: 12.5px !important;
+  padding-top: 0.22rem !important;
+  padding-bottom: 0.22rem !important;
+}
+.table {
+  margin-bottom: 0.5rem !important;
+}
+.btn, .btn-sm, .btn-primary, .btn-outline-secondary, .btn-outline-success, .btn-outline-danger {
+  font-size: 12px !important;
+  padding: 0.18rem 0.5rem !important;
+  border-radius: 0.2rem !important;
+}
+.badge {
+  font-size: 11px !important;
+  padding: 0.25em 0.5em !important;
+  border-radius: 0.3em !important;
+}
+.input-group, .form-control {
+  font-size: 12px !important;
+  padding: 0.18rem 0.4rem !important;
+  height: 1.7rem !important;
+}
+.pagination .page-link {
+  font-size: 12px !important;
+  padding: 0.18rem 0.5rem !important;
+}
+.sidebar, .sidebar .nav-item, .sidebar .nav-link {
+  min-width: 170px !important;
+  max-width: 170px !important;
+  font-size: 13px !important;
+  padding: 0.3rem 0.7rem !important;
+}
+@media (max-width: 1200px) {
+  .sidebar, .sidebar .nav-item, .sidebar .nav-link {
+    min-width: 120px !important;
+    max-width: 120px !important;
+    font-size: 12px !important;
+    padding: 0.2rem 0.4rem !important;
+  }
+  .table th, .table td {
+    font-size: 11px !important;
+    padding: 0.12rem 0.15rem !important;
+  }
+}
+.row, .mb-4, .mb-3, .mb-0, .mb-2, .mb-1 {
+  margin-bottom: 0.4rem !important;
+}
+.input-group .form-control {
+  height: 1.7rem !important;
+  font-size: 12px !important;
+  padding: 0.18rem 0.4rem !important;
+}
+.input-group-append .btn {
+  height: 1.7rem !important;
+  font-size: 12px !important;
+  padding: 0.18rem 0.5rem !important;
+}
+.card .h5, .card .h3, .card .h4 {
+  font-size: 1em !important;
+  margin-bottom: 0.2rem !important;
+}
+.card .fa-2x {
+  font-size: 1.2em !important;
+}
+.card, .table, .form-control, .btn, .pagination, .input-group {
+  box-shadow: none !important;
+  border-width: 1px !important;
+}
+.table thead th, .table tbody td {
+  line-height: 1.2 !important;
+}
+.pagination {
+  margin-bottom: 0.2rem !important;
+}
+select.form-control {
+  height: 1.7rem !important;
+  font-size: 12px !important;
+  padding: 0.18rem 0.4rem !important;
+}
+.alert {
+  padding: 0.4rem 0.7rem !important;
+  font-size: 12px !important;
+}

@@ -48,11 +48,7 @@ def dashboard():
         .filter(User.id == current_user.id) \
         .filter(Activity.start_date >= start_date, Activity.start_date <= end_date) \
         .order_by(Activity.start_date.desc()).all()
-    # Dynamic summary: count all statuses
-    status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
-    summary = {'total': len(all_activities)}
-    summary.update(status_counter)
-    # Filtered query for table
+    # Paginated activities for table (filtered by search/status)
     query = Activity.query.join(Activity.assignees).filter(User.id == current_user.id)
     query = query.filter(Activity.start_date >= start_date, Activity.start_date <= end_date)
     if status:
@@ -67,27 +63,25 @@ def dashboard():
                 (Activity.node_name.ilike(f'%{search}%')) |
                 (Activity.activity_type.ilike(f'%{search}%'))
             )
-    per_page = request.args.get('per_page', 10, type=int)
-    activities = query.order_by(Activity.start_date.desc()).paginate(page=page, per_page=per_page)
-    # Add update_days_count for each activity (member dashboard)
-    for activity in activities.items:
-        update_days = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=activity.id).all())
-        activity.update_days_count = len(update_days)
-    # Build status color and icon maps
+    activities = query.order_by(Activity.start_date.desc()).paginate(page=page, per_page=10)
+    # Dynamic summary: count all statuses
     statuses = Status.query.all()
+    status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
+    summary = {'total': len(all_activities)}
+    summary.update(status_counter)
     default_colors = {
         'completed': 'success',
         'in_progress': 'warning',
         'pending': 'info',
         'on_hold': 'secondary',
-        'up': 'primary'
+        'yet_to_start': 'primary',
     }
     default_icons = {
         'completed': 'fa-check',
         'in_progress': 'fa-spinner',
         'pending': 'fa-hourglass-half',
         'on_hold': 'fa-pause-circle',
-        'up': 'fa-arrow-up'
+        'yet_to_start': 'fa-play',
     }
     status_color_map = {s.name.lower(): getattr(s, 'color', default_colors.get(s.name.lower(), 'dark')) for s in statuses}
     status_icon_map = {s.name.lower(): getattr(s, 'icon', default_icons.get(s.name.lower(), 'fa-circle')) for s in statuses}
@@ -533,8 +527,31 @@ def team_activities():
         'completed': sum(1 for a in all_activities if a.status == 'completed'),
         'in_progress': sum(1 for a in all_activities if a.status == 'in_progress'),
         'pending': sum(1 for a in all_activities if a.status == 'pending'),
+        'on_hold': sum(1 for a in all_activities if a.status == 'on_hold'),
+        'yet_to_start': sum(1 for a in all_activities if a.status == 'yet_to_start'),
     }
-    return render_template('team_activities.html', activities=activities, team_members=team_members, team_members_map=team_members_map, summary=summary, all_teams=all_teams, selected_team_id=selected_team_id)
+    # Dynamic summary: count all statuses
+    statuses = Status.query.all()
+    status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
+    summary = {'total': len(all_activities)}
+    summary.update(status_counter)
+    default_colors = {
+        'completed': 'success',
+        'in_progress': 'warning',
+        'pending': 'info',
+        'on_hold': 'secondary',
+        'yet_to_start': 'primary',
+    }
+    default_icons = {
+        'completed': 'fa-check',
+        'in_progress': 'fa-spinner',
+        'pending': 'fa-hourglass-half',
+        'on_hold': 'fa-pause-circle',
+        'yet_to_start': 'fa-play',
+    }
+    status_color_map = {s.name.lower(): getattr(s, 'color', default_colors.get(s.name.lower(), 'dark')) for s in statuses}
+    status_icon_map = {s.name.lower(): getattr(s, 'icon', default_icons.get(s.name.lower(), 'fa-circle')) for s in statuses}
+    return render_template('team_activities.html', activities=activities, team_members=team_members, team_members_map=team_members_map, summary=summary, all_teams=all_teams, selected_team_id=selected_team_id, status_color_map=status_color_map, status_icon_map=status_icon_map)
 
 @app.route('/delete_activity/<int:id>', methods=['POST'])
 @login_required

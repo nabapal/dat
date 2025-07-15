@@ -1,0 +1,30 @@
+/* Custom sidebar width for a slimmer look */
+@media (min-width: 768px) {
+  .sidebar {
+    width: 10rem !important;
+  }
+  .sidebar .nav-item .nav-link {
+    width: 10rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .sidebar .sidebar-brand {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}
+
+@media (max-width: 767.98px) {
+  .sidebar {
+    width: 5rem !important;
+  }
+  .sidebar .nav-item .nav-link {
+    width: 5rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .sidebar .sidebar-brand {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
