@@ -96,7 +96,7 @@ with app.app_context():
                     if isinstance(col, datetime):
                         update_text = df_updates.loc[idx, col]
                         if pd.notnull(update_text):
-                            # Prevent duplicate updates
+                            # Prevent duplicate updates (ignore text duplicates, only check date/user)
                             existing_update = ActivityUpdate.query.filter_by(
                                 activity_id=activity.id,
                                 update_date=col,
