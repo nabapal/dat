@@ -110,7 +110,7 @@
     <div class="card-body">
       <div class="table-responsive">
         <table class="table table-bordered table-hover" id="reportsTable">
-          <thead class="thead-light"><tr><th>Type</th><th>Status</th><th>Activities</th><th>Days Contributed</th></tr></thead>
+          <thead class="thead-light"><tr><th>Type</th><th>Status</th><th>Activities</th><th>Average Days Contributed</th></tr></thead>
           <tbody>
             {% for type, stat in type_status_update.items() %}
             <tr>
@@ -121,7 +121,7 @@
                 {% endfor %}
               </td>
               <td><a href="{{ url_for('team_activities', activity_type=type) }}">{{ stat['count'] }}</a></td>
-              <td>{{ stat['days_contributed'] }}</td>
+              <td>{{ stat['average_days_contributed'] }}</td>
             </tr>
             {% else %}<tr><td colspan="4" class="text-center">No data</td></tr>{% endfor %}
           </tbody>

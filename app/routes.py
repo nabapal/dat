@@ -44,26 +44,17 @@ def dashboard():
         fy = available_fys[-2] if len(available_fys) > 1 else available_fys[-1]
     start_date, end_date = get_financial_year_dates(fy)
     # Get all activities for summary (filtered by FY)
-    all_activities = Activity.query.join(Activity.assignees) \
+    activities_query = Activity.query.join(Activity.assignees) \
         .filter(User.id == current_user.id) \
         .filter(Activity.start_date >= start_date, Activity.start_date <= end_date) \
-        .order_by(Activity.start_date.desc()).all()
-    # Paginated activities for table (filtered by search/status)
-    query = Activity.query.join(Activity.assignees).filter(User.id == current_user.id)
-    query = query.filter(Activity.start_date >= start_date, Activity.start_date <= end_date)
-    if status:
-        query = query.filter(Activity.status == status)
-    elif search:
-        status_list = ['pending', 'in_progress', 'completed', 'on_hold']
-        if search.lower() in status_list:
-            query = query.filter(Activity.status == search.lower())
-        else:
-            query = query.filter(
-                (Activity.details.ilike(f'%{search}%')) |
-                (Activity.node_name.ilike(f'%{search}%')) |
-                (Activity.activity_type.ilike(f'%{search}%'))
-            )
-    activities = query.order_by(Activity.start_date.desc()).paginate(page=page, per_page=10)
+        .order_by(Activity.start_date.desc())
+    per_page = request.args.get('per_page', 10, type=int)
+    activities = activities_query.paginate(page=page, per_page=per_page)
+    all_activities = activities.items
+    # Calculate days contributed for each activity
+    for activity in activities.items:
+        update_days = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=activity.id).all())
+        activity.update_days_count = len(update_days)
     # Dynamic summary: count all statuses
     statuses = Status.query.all()
     status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
@@ -319,6 +310,12 @@ def reports():
                 type_status_update[a.activity_type]['count'] += 1
                 days_contributed = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=a.id).all())
                 type_status_update[a.activity_type]['days_contributed'] += len(days_contributed)
+        # Calculate average days contributed per type
+        for t, stat in type_status_update.items():
+            if stat['count'] > 0:
+                stat['average_days_contributed'] = round(stat['days_contributed'] / stat['count'], 2)
+            else:
+                stat['average_days_contributed'] = 0
         summary = {
             'total': len(all_activities),
             'completed': sum(1 for a in all_activities if a.status == 'completed'),
@@ -620,7 +617,8 @@ def admin_users():
             if User.query.filter_by(username=username).first():
                 flash('Username already exists.', 'danger')
             else:
-                user = User(username=username, password_hash=password, role=role, is_active=True)
+                from werkzeug.security import generate_password_hash
+                user = User(username=username, password_hash=generate_password_hash(password), role=role, is_active=True)
                 team = Team.query.get(int(team_id))
                 if team:
                     user.teams.append(team)
@@ -660,7 +658,8 @@ def signup():
         elif User.query.filter_by(username=username).first():
             flash('Username already exists.', 'danger')
         else:
-            user = User(username=username, password_hash=password, role=role, is_active=False)
+            from werkzeug.security import generate_password_hash
+            user = User(username=username, password_hash=generate_password_hash(password), role=role, is_active=False)
             team = Team.query.get(int(team_id))
             if team:
                 user.teams.append(team)
