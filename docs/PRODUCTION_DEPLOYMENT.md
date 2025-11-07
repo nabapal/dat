@@ -7,7 +7,7 @@ This guide describes how to run the DAT Flask application in a production-like e
 1. **Containerized application runtime**
    - Build an image from the project `Dockerfile` based on `python:3.10-slim`.
    - Run the Flask application behind Gunicorn (`gunicorn --bind 0.0.0.0:8000 run:app`).
-   - Expose port `8000` by default (configurable via `APP_PORT`).
+   - Expose the host port defined in `APP_PORT` (we use `8009` in production; change as needed).
 
 2. **Persistent host storage**
    - Mount `./infra/db` from the host into `/data` in the container so the SQLite file (`activity_tracker.db`) lives on the host.
@@ -45,7 +45,7 @@ This guide describes how to run the DAT Flask application in a production-like e
    Edit `infra/.env.production` and set:
 
    - `SECRET_KEY` to a long random string (use `python -c 'import secrets; print(secrets.token_urlsafe(32))'`).
-   - Optionally adjust `APP_PORT` if you need to expose the service on another host port.
+   - Adjust `APP_PORT` to the host port you want to expose (set it to `8009` in production or any free port).
    - Leave `DATABASE_URL=sqlite:////data/activity_tracker.db` unless you are pointing to an external database.
 
 3. **Verify host directories** (the deployment script will also create them):
@@ -69,7 +69,7 @@ The script will:
 2. Ensure `infra/db/` and `user_data/` directories exist for bind-mounting.
 3. Detect Docker Compose (v2 plugin or legacy binary).
 4. Build the image defined in the `Dockerfile` and start the `web` service in detached mode.
-5. Print the port where the application is exposed (defaults to `8000`).
+5. Print the port where the application is exposed (the value of `APP_PORT`, e.g. `8009`).
 
 ### Seeding Data
 
@@ -87,12 +87,27 @@ You can re-run the seeding command manually later:
 docker compose --env-file infra/.env.production exec -T web python seed_demo.py
 ```
 
+## Updating an Existing Deployment
+
+When fresh changes land in `main`, pull them onto the server and redeploy:
+
+```bash
+cd /home/naba/prepod/dat
+git fetch origin
+git pull --ff-only origin main
+sudo docker compose --env-file infra/.env.production up -d --build
+sudo docker compose --env-file infra/.env.production exec -T web python seed_demo.py  # optional reseed
+```
+
+Always rerun the seeding step if the source Excel files have changed or you need a clean activity dataset.
+
 ## Routine Operations
 
 - **View logs**: `docker compose --env-file infra/.env.production logs -f web`
 - **Restart service**: `docker compose --env-file infra/.env.production restart web`
 - **Stop stack**: `docker compose --env-file infra/.env.production down`
 - **Update image**: pull latest code, then `./deploy_production.sh` (Compose rebuilds incrementally).
+- **Clear activity data**: `sqlite3 infra/db/activity_tracker.db "DELETE FROM activity_update; DELETE FROM activity;"`
 
 ## Backup and Restore
 
