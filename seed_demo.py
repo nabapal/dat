@@ -1,19 +1,16 @@
-import os
+from sqlalchemy import inspect
 from app import app, db
 from app.models import User, Node, ActivityType, Status, Team
 from werkzeug.security import generate_password_hash
-
-# Remove the existing SQLite database file if it exists
-db_path = os.path.join(os.path.dirname(__file__), 'app', 'activity_tracker.db')
-if os.path.exists(db_path):
-    os.remove(db_path)
+from inspect_excel import import_user_excels
+from normalize_statuses import normalize_statuses
 
 def seed_demo():
-    """Drop all tables, recreate them, then seed the database with teams, users, nodes, activity types, and statuses."""
-    # Create all tables
+    """Drop and recreate tables, then seed base data before importing user activity."""
+    db.drop_all()
     db.create_all()
-    # Print all tables to debug
-    print('Tables after create_all:', db.engine.table_names())
+    inspector = inspect(db.engine)
+    print('Tables after create_all:', inspector.get_table_names())
 
     # Create teams
     team_ipse = Team(name='IPSE')
@@ -22,8 +19,8 @@ def seed_demo():
     db.session.commit()
 
     # Create users (with hashed passwords)
-    naba = User(username='naba', password_hash=generate_password_hash('password'), role='team_lead', is_active=True)
-    anup = User(username='anup', password_hash=generate_password_hash('password'), role='super_lead', is_active=True)
+    naba = User(username='Naba', password_hash=generate_password_hash('password'), role='team_lead', is_active=True)
+    anup = User(username='Anup', password_hash=generate_password_hash('password'), role='super_lead', is_active=True)
     admin = User(username='admin', password_hash=generate_password_hash('admin'), role='admin', is_active=True)
     naba.teams.extend([team_ipse, team_telco])
     db.session.add_all([naba, anup, admin])
@@ -77,6 +74,12 @@ def seed_demo():
     db.session.commit()
 
     print('All tables dropped and recreated. Teams, users (including naba and anup), nodes, activity types, and statuses seeded.')
+
+    # Import user Excel data after base seeding
+    import_user_excels()
+
+    # Normalize statuses to ensure consistent casing
+    normalize_statuses()
 
 if __name__ == '__main__':
     with app.app_context():

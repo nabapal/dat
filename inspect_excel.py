@@ -4,28 +4,31 @@ from app import app, db
 from app.models import Activity, ActivityUpdate, Node, ActivityType, Status, User
 from datetime import datetime
 
-user_data_dir = 'user_data'
-
-with app.app_context():
-    for filename in os.listdir(user_data_dir):
-        if filename.endswith('.xlsx'):
+def import_user_excels(user_data_dir='user_data'):
+    """Import all Excel files found in ``user_data_dir`` into the database."""
+    with app.app_context():
+        for filename in os.listdir(user_data_dir):
+            if not filename.endswith('.xlsx'):
+                continue
             username = filename.replace('.xlsx', '').lower()
             file_path = os.path.join(user_data_dir, filename)
-            # Try to get the user (case-insensitive)
             user = User.query.filter(db.func.lower(User.username) == username).first()
             if not user:
-                user = User(username=username.capitalize(), password_hash=username+'@123', role='member', is_active=True)
+                user = User(
+                    username=username.capitalize(),
+                    password_hash=username + '@123',
+                    role='member',
+                    is_active=True
+                )
                 db.session.add(user)
                 db.session.commit()
-            # Try both possible sheet names (with and without trailing space)
-            for sheet_name in [username.capitalize(), username.capitalize()+' ']:
+            for sheet_name in [username.capitalize(), username.capitalize() + ' ']:
                 try:
                     df_full = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl', header=2)
                     break
                 except Exception:
                     continue
             else:
-                # Print available sheet names for debugging
                 try:
                     xl = pd.ExcelFile(file_path, engine='openpyxl')
                     print(f"Sheet not found for {username} in {filename}. Available sheets: {xl.sheet_names}")
@@ -46,17 +49,12 @@ with app.app_context():
                 end_date = None
                 if 'End Date' in df_updates.columns:
                     end_date_val = pd.to_datetime(df_updates.loc[idx, 'End Date'], errors='coerce')
-                    if pd.isnull(end_date_val) or str(end_date_val).lower() == 'nat':
-                        end_date = None
-                    else:
+                    if not (pd.isnull(end_date_val) or str(end_date_val).lower() == 'nat'):
                         end_date = end_date_val
-                # Handle duration if present and ensure it's None if NaN
                 duration = None
                 if 'Duration' in df_main.columns:
                     duration_val = row.get('Duration', None)
-                    if pd.isnull(duration_val):
-                        duration = None
-                    else:
+                    if not pd.isnull(duration_val):
                         duration = duration_val
                 node = Node.query.filter_by(name=node_name).first()
                 if not node and node_name:
@@ -87,16 +85,13 @@ with app.app_context():
                     )
                     db.session.add(activity)
                     db.session.commit()
-                # Ensure user is in assignees for both new and existing activities
-                if hasattr(activity, 'assignees'):
-                    if user not in activity.assignees:
-                        activity.assignees.append(user)
-                        db.session.commit()
+                if hasattr(activity, 'assignees') and user not in activity.assignees:
+                    activity.assignees.append(user)
+                    db.session.commit()
                 for col in df_updates.columns:
                     if isinstance(col, datetime):
                         update_text = df_updates.loc[idx, col]
                         if pd.notnull(update_text):
-                            # Prevent duplicate updates (ignore text duplicates, only check date/user)
                             existing_update = ActivityUpdate.query.filter_by(
                                 activity_id=activity.id,
                                 update_date=col,
@@ -111,4 +106,8 @@ with app.app_context():
                                 )
                                 db.session.add(update)
                 db.session.commit()
-print('All user Excel files imported.')
+    print('All user Excel files imported.')
+
+
+if __name__ == '__main__':
+    import_user_excels()

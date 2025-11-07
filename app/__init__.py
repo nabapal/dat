@@ -6,9 +6,10 @@ from flask_migrate import Migrate
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
-# Use absolute path for SQLite DB
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(os.path.dirname(__file__), 'activity_tracker.db')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
+# Allow overriding the database URI so Docker can point at a mounted volume
+default_db_uri = 'sqlite:///' + os.path.join(os.path.dirname(__file__), 'activity_tracker.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', default_db_uri)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)

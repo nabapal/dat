@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  web:
+    build:
+      context: .
+    container_name: dat_app
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    env_file:
+      - infra/.env.production
+    environment:
+      FLASK_ENV: production
+    volumes:
+      - ./user_data:/app/user_data
+      - ./infra/db:/data
+    restart: unless-stopped

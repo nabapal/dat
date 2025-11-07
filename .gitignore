@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+infra/.env.production
+infra/db/*.db
+infra/db/*.sqlite3
+infra/db/activity_tracker.db

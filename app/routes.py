@@ -1,6 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from . import app, db
+from sqlalchemy import inspect
 from .models import User, Activity, ActivityUpdate, Node, ActivityType, Status, Team
 from .forms import LoginForm, ActivityForm, DummyDropdownForm, UpdateForm
 from datetime import datetime, timedelta
@@ -850,7 +851,8 @@ def set_financial_year():
 def inject_financial_years():
     # Debug: print DB file and tables
     print('DB file in use:', db.engine.url)
-    print('Tables:', db.engine.table_names())
+    inspector = inspect(db.engine)
+    print('Tables:', inspector.get_table_names())
     # Find min and max years from Activity data, fallback to current year
     min_year = db.session.query(db.func.min(Activity.start_date)).scalar()
     max_year = db.session.query(db.func.max(Activity.start_date)).scalar()
