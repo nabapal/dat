@@ -4,6 +4,14 @@ from app import app, db
 from app.models import Activity, ActivityUpdate, Node, ActivityType, Status, User
 from datetime import datetime
 
+def _series_lookup(series, candidates, default=None):
+    """Return the first non-null value for the provided candidate column names."""
+    for name in candidates:
+        if name in series and series[name] is not None and not pd.isna(series[name]):
+            return series[name]
+    return default
+
+
 def import_user_excels(user_data_dir='user_data'):
     """Import all Excel files found in ``user_data_dir`` into the database."""
     with app.app_context():
@@ -35,20 +43,26 @@ def import_user_excels(user_data_dir='user_data'):
                 except Exception as e:
                     print(f"Sheet not found for {username} in {filename}. Could not read sheet names: {e}")
                 continue
+            # Normalize string column headers (strip whitespace, preserve datetime headings)
+            df_full.rename(columns=lambda c: c.strip() if isinstance(c, str) else c, inplace=True)
             df_main = df_full.iloc[:, 0:7]
             df_updates = df_full.iloc[:, 7:]
             for idx, row in df_main.iterrows():
-                activity_id = str(row['Activity ID']).strip()
-                details = str(row['Activity ']).strip()
-                node_name = str(row['Node Name']).strip()
-                activity_type = str(row['Activity Type']).strip()
-                status = str(row['Status']).strip()
-                start_date = pd.to_datetime(row['Start date'], errors='coerce')
+                activity_id = str(_series_lookup(row, ['Activity ID', 'ActivityID', 'Activity_Id'], '')).strip()
+                details = str(_series_lookup(row, ['Activity', 'Activity Details', 'Activity Description', 'Activity '], '')).strip()
+                node_name = str(_series_lookup(row, ['Node Name', 'Node'], '')).strip()
+                activity_type = str(_series_lookup(row, ['Activity Type', 'Type'], '')).strip()
+                status_raw = _series_lookup(row, ['Status', 'Current Status', 'Activity Status'], '')
+                status = str(status_raw).strip() if status_raw is not None else ''
+                start_raw = _series_lookup(row, ['Start date', 'Start Date', 'Start'], None)
+                start_date = pd.to_datetime(start_raw, errors='coerce', dayfirst=True)
                 if not activity_id or activity_id.lower() == 'nan' or not details or details.lower() == 'nan' or pd.isnull(start_date):
                     continue
                 end_date = None
-                if 'End Date' in df_updates.columns:
-                    end_date_val = pd.to_datetime(df_updates.loc[idx, 'End Date'], errors='coerce')
+                update_row = df_updates.loc[idx] if idx in df_updates.index else pd.Series(dtype='object')
+                end_raw = _series_lookup(update_row, ['End Date', 'End date', 'End'], None)
+                if end_raw is not None:
+                    end_date_val = pd.to_datetime(end_raw, errors='coerce', dayfirst=True)
                     if not (pd.isnull(end_date_val) or str(end_date_val).lower() == 'nat'):
                         end_date = end_date_val
                 duration = None
@@ -56,6 +70,7 @@ def import_user_excels(user_data_dir='user_data'):
                     duration_val = row.get('Duration', None)
                     if not pd.isnull(duration_val):
                         duration = duration_val
+                normalized_status = status if status else 'pending'
                 node = Node.query.filter_by(name=node_name).first()
                 if not node and node_name:
                     node = Node(name=node_name)
@@ -76,7 +91,7 @@ def import_user_excels(user_data_dir='user_data'):
                         details=details,
                         node_name=node_name,
                         activity_type=activity_type,
-                        status=status,
+                        status=normalized_status,
                         start_date=start_date,
                         end_date=end_date,
                         duration=duration,
