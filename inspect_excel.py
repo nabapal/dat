@@ -92,16 +92,21 @@ def import_user_excels(user_data_dir='user_data'):
                     if isinstance(col, datetime):
                         update_text = df_updates.loc[idx, col]
                         if pd.notnull(update_text):
+                            update_date = col.date()
+                            normalized_text = str(update_text).strip()
                             existing_update = ActivityUpdate.query.filter_by(
                                 activity_id=activity.id,
-                                update_date=col,
+                                update_date=update_date,
                                 updated_by=user.id
                             ).first()
-                            if not existing_update:
+                            if existing_update:
+                                if existing_update.update_text != normalized_text:
+                                    existing_update.update_text = normalized_text
+                            else:
                                 update = ActivityUpdate(
                                     activity_id=activity.id,
-                                    update_text=str(update_text),
-                                    update_date=col,
+                                    update_text=normalized_text,
+                                    update_date=update_date,
                                     updated_by=user.id
                                 )
                                 db.session.add(update)
