@@ -230,14 +230,23 @@ $(document).ready(function() {
         ordering: true,
         order: []
     });
-  // initialize resizable columns for team activities table
-  try {
-    if ($.fn && $.fn.colResizable) {
-      initResizableTable('teamActivitiesTable');
-    } else {
-      console.warn('colResizable plugin not found; resizable columns disabled for #teamActivitiesTable');
-    }
-  } catch (err) { console.warn('initResizable for #teamActivitiesTable failed', err); }
+    // initialize resizable columns for team activities table and re-init after draws
+    try {
+      var $teamTable = $('#teamActivitiesTable');
+      if ($.fn && $.fn.colResizable) {
+        initResizableTable('teamActivitiesTable');
+      } else {
+        console.warn('colResizable plugin not found; resizable columns disabled for #teamActivitiesTable');
+      }
+      // re-init after DataTables draws (responsive redraws can break grips)
+      try {
+        var dt = $teamTable.DataTable();
+        dt.on('draw', function() { setTimeout(function(){ initResizableTable('teamActivitiesTable'); }, 50); });
+      } catch (err) { console.warn('Could not attach draw handler for teamActivitiesTable', err); }
+      // delayed retries in case plugin loads later
+      setTimeout(function(){ initResizableTable('teamActivitiesTable'); }, 250);
+      setTimeout(function(){ initResizableTable('teamActivitiesTable'); }, 1000);
+    } catch (err) { console.warn('initResizable for #teamActivitiesTable failed', err); }
     $('#sidebarToggle').on('click', function(e) {
         $('#wrapper').toggleClass('sidebar-hidden');
     });

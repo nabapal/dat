@@ -226,6 +226,16 @@ function initResizableTable(tableId) {
         console.warn('initResizableTable: colResizable not available for', tableId);
         return;
     }
+    var $table = $('#' + tableId);
+    if (!$table.length) {
+        console.warn('initResizableTable: table not found', tableId);
+        return;
+    }
+    // avoid double-initializing if grips already present (colResizable uses class JCLRgrip)
+    if ($table.find('.JCLRgrip, .col-resize-grip').length) {
+        console.log('initResizableTable: already initialized for', tableId);
+        return;
+    }
     console.log('initResizableTable: initializing', tableId);
     restoreColWidths(tableId);
     try {
