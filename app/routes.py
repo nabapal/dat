@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, login_required, current_user
 from . import app, db
-from sqlalchemy import inspect
+from sqlalchemy import inspect, func, or_
 from .models import User, Activity, ActivityUpdate, Node, ActivityType, Status, Team
 from .forms import LoginForm, ActivityForm, DummyDropdownForm, UpdateForm
 from datetime import datetime, timedelta
@@ -44,11 +44,24 @@ def dashboard():
         available_fys = [f for f in inject_financial_years()['available_financial_years']]
         fy = available_fys[-2] if len(available_fys) > 1 else available_fys[-1]
     start_date, end_date = get_financial_year_dates(fy)
-    # Get all activities for summary (filtered by FY)
+    # Base query for activities (filtered by FY). We'll paginate for the table
     activities_query = Activity.query.join(Activity.assignees) \
         .filter(User.id == current_user.id) \
         .filter(Activity.start_date >= start_date, Activity.start_date <= end_date) \
         .order_by(Activity.start_date.desc())
+    # Apply status and search filters from request (so summary links work)
+    if status:
+        activities_query = activities_query.filter(Activity.status == status)
+    if search:
+        term = f"%{search}%"
+        # search across multiple activity fields and assignee username
+        activities_query = activities_query.filter(or_(
+            Activity.details.ilike(term),
+            Activity.activity_id.ilike(term),
+            Activity.node_name.ilike(term),
+            Activity.activity_type.ilike(term),
+            User.username.ilike(term)
+        ))
     per_page = request.args.get('per_page', 10, type=int)
     activities = activities_query.paginate(page=page, per_page=per_page)
     all_activities = activities.items
@@ -56,10 +69,20 @@ def dashboard():
     for activity in activities.items:
         update_days = set(u.update_date for u in ActivityUpdate.query.filter_by(activity_id=activity.id).all())
         activity.update_days_count = len(update_days)
-    # Dynamic summary: count all statuses
+    # Dynamic summary: compute totals across the full FY selection (not just current page)
     statuses = Status.query.all()
-    status_counter = Counter((a.status or '').strip().lower() for a in all_activities)
-    summary = {'total': len(all_activities)}
+    total_count = db.session.query(func.count(Activity.id)).join(Activity.assignees).filter(
+        User.id == current_user.id,
+        Activity.start_date >= start_date,
+        Activity.start_date <= end_date
+    ).scalar() or 0
+    status_rows = db.session.query(Activity.status, func.count(Activity.id)).join(Activity.assignees).filter(
+        User.id == current_user.id,
+        Activity.start_date >= start_date,
+        Activity.start_date <= end_date
+    ).group_by(Activity.status).all()
+    status_counter = {(s or '').strip().lower(): cnt for s, cnt in status_rows}
+    summary = {'total': total_count}
     summary.update(status_counter)
     default_colors = {
         'completed': 'success',
@@ -108,9 +131,10 @@ def add_activity():
         form.assigned_to.choices = [(current_user.id, current_user.username)]
         if not form.assigned_to.data:
             form.assigned_to.data = [current_user.id]
-    # Set default values
-    form.start_date.data = datetime.now().date()
-    form.end_date.data = (datetime.now() + timedelta(days=7)).date()
+    # Set default values only on GET so we don't override user-submitted values on POST
+    if request.method == 'GET':
+        form.start_date.data = datetime.now().date()
+        form.end_date.data = (datetime.now() + timedelta(days=7)).date()
     if form.validate_on_submit():
         # Generate unique activity_id: timestamp + incremental number
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -509,6 +533,16 @@ def team_activities():
         query = query.filter(Activity.activity_type == activity_type)
     if node_name:
         query = query.filter(Activity.node_name == node_name)
+    # Apply search filter across multiple fields
+    if search:
+        term = f"%{search}%"
+        query = query.filter(or_(
+            Activity.details.ilike(term),
+            Activity.activity_id.ilike(term),
+            Activity.node_name.ilike(term),
+            Activity.activity_type.ilike(term),
+            User.username.ilike(term)
+        ))
     sort_col = getattr(Activity, sort)
     if direction == 'desc':
         sort_col = sort_col.desc()

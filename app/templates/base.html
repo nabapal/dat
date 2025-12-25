@@ -17,8 +17,7 @@
     <link href="{{ url_for('static', filename='css/custom-compact.css') }}" rel="stylesheet">
     <!-- Add tablesorter JS and CSS at the end for correct order -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/css/theme.default.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.31.3/js/jquery.tablesorter.min.js"></script>
+    <!-- tablesorter JS is loaded at the end to ensure project's jQuery is used -->
     {% block extra_css %}
 <style>
   /* Fully hide sidebar and expand content when .sidebar-hidden is on #wrapper */
@@ -168,8 +167,98 @@ $(document).ready(function() {
         ordering: true,
         order: []
     });
+    // Try to initialize resizable columns for dashboard table after DataTables init
+    try {
+        if ($.fn && $.fn.colResizable) {
+            initResizableTable('dataTable');
+        } else {
+            console.warn('colResizable plugin not found; resizable columns disabled for #dataTable');
+        }
+    } catch (err) { console.warn('initResizable for #dataTable failed', err); }
     $('#sidebarToggle').on('click', function(e) {
         $('#wrapper').toggleClass('sidebar-hidden');
+        // Persist the sidebar hidden state so it survives page reloads
+        try {
+            if ($('#wrapper').hasClass('sidebar-hidden')) {
+                localStorage.setItem('sidebarHidden', '1');
+            } else {
+                localStorage.removeItem('sidebarHidden');
+            }
+        } catch (err) {
+            console.warn('localStorage not available for sidebar state persistence', err);
+        }
+    });
+    // Restore persisted sidebar state on load
+    try {
+        if (localStorage.getItem('sidebarHidden') === '1') {
+            $('#wrapper').addClass('sidebar-hidden');
+        }
+    } catch (err) {
+        // ignore
+    }
+});
+</script>
+<!-- colResizable plugin for drag-to-resize table columns -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/colresizable/1.6/colResizable-1.6.min.js"></script>
+<style>
+/* small grip style for column resize */
+.col-resize-grip { width: 6px; height: 100%; background: transparent; display:block; }
+.dragging { cursor: col-resize; }
+</style>
+<script>
+function saveColWidths(tableId) {
+    try {
+        var widths = [];
+        $('#' + tableId + ' thead th').each(function() { widths.push($(this).outerWidth()); });
+        localStorage.setItem('colWidths:' + tableId, JSON.stringify(widths));
+    } catch (err) { console.warn('saveColWidths failed', err); }
+}
+function restoreColWidths(tableId) {
+    try {
+        var raw = localStorage.getItem('colWidths:' + tableId);
+        if (!raw) return;
+        var widths = JSON.parse(raw);
+        $('#' + tableId + ' thead th').each(function(i) { if (widths[i]) $(this).css('width', widths[i] + 'px'); });
+    } catch (err) { console.warn('restoreColWidths failed', err); }
+}
+function initResizableTable(tableId) {
+    if (!$.fn || !$.fn.colResizable) {
+        console.warn('initResizableTable: colResizable not available for', tableId);
+        return;
+    }
+    console.log('initResizableTable: initializing', tableId);
+    restoreColWidths(tableId);
+    try {
+        $('#' + tableId).colResizable({
+            liveDrag: true,
+            gripInnerHtml: '<div class="col-resize-grip"></div>',
+            draggingClass: 'dragging',
+            onResize: function() { saveColWidths(tableId); }
+        });
+        // ensure widths saved when drag ends
+        $('#' + tableId + ' thead').on('mouseup touchend', function() { saveColWidths(tableId); });
+    } catch (err) { console.warn('initResizableTable failed for', tableId, err); }
+}
+function resetColWidths(tableId) {
+    try { localStorage.removeItem('colWidths:' + tableId); location.reload(); } catch (err) { console.warn('resetColWidths failed', err); }
+}
+
+// Initialize tooltips and resizable tables after window load (ensures DataTables is ready)
+$(window).on('load', function() {
+    try { $('[data-toggle="tooltip"]').tooltip({container:'body'}); } catch (err) {}
+    // initialize resizable for known tables
+    function ensureColResizable(cb) {
+        if ($.fn && $.fn.colResizable) return cb();
+        // try loading from jsDelivr as a fallback
+        var script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/colresizable@1.6/colResizable-1.6.min.js';
+        script.onload = function() { console.log('colResizable loaded from fallback'); cb(); };
+        script.onerror = function() { console.warn('failed to load colResizable fallback'); };
+        document.head.appendChild(script);
+    }
+    ensureColResizable(function() {
+        initResizableTable('dataTable');
+        initResizableTable('teamActivitiesTable');
     });
 });
 </script>

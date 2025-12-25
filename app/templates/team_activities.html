@@ -95,6 +95,9 @@
             </button>
           </div>
         </div>
+          <div class="ml-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetColWidths('teamActivitiesTable')" title="Reset column widths">Reset columns</button>
+          </div>
       </form>
       <div class="table-responsive">
         <table class="table table-bordered table-hover" id="teamActivitiesTable">
@@ -116,12 +119,12 @@
             {% for activity in activities.items %}
             <tr>
               <td class="fw-bold text-primary text-truncate">
-                <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="text-decoration-underline text-primary" title="View History">
+                    <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="text-decoration-underline text-primary" title="{{ activity.activity_id }}" data-toggle="tooltip" data-placement="top">
                   {{ activity.activity_id }}
                 </a>
               </td>
-              <td class="text-truncate">{{ activity.details|truncate(30) }}</td>
-              <td>
+                  <td class="text-truncate" title="{{ activity.details }}" data-toggle="tooltip" data-placement="top">{{ activity.details|truncate(30) }}</td>
+              <td class="text-truncate" title="{% for user in activity.assignees %}{{ user.username }} {% endfor %}" data-toggle="tooltip" data-placement="top">
                 {% for user in activity.assignees %}
                   <span class="badge badge-primary mr-1">{{ user.username }}</span>
                 {% endfor %}
@@ -146,7 +149,7 @@
                   <button type="submit" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
                 </form>
               </td>
-            </tr>
+              
             {% else %}
             <tr><td colspan="10" class="text-center">No activities found.</td></tr>
             {% endfor %}
@@ -227,6 +230,14 @@ $(document).ready(function() {
         ordering: true,
         order: []
     });
+  // initialize resizable columns for team activities table
+  try {
+    if ($.fn && $.fn.colResizable) {
+      initResizableTable('teamActivitiesTable');
+    } else {
+      console.warn('colResizable plugin not found; resizable columns disabled for #teamActivitiesTable');
+    }
+  } catch (err) { console.warn('initResizable for #teamActivitiesTable failed', err); }
     $('#sidebarToggle').on('click', function(e) {
         $('#wrapper').toggleClass('sidebar-hidden');
     });

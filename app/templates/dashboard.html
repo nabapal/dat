@@ -422,6 +422,12 @@ h1, h2, h3, h4, h5, h6 {
   <div class="card shadow mb-4">
     <div class="card-body">
       <form method="get" class="form-inline mb-3">
+        {% if request.args.get('status') %}
+          <input type="hidden" name="status" value="{{ request.args.get('status') }}">
+        {% endif %}
+        {% if request.args.get('per_page') %}
+          <input type="hidden" name="per_page" value="{{ request.args.get('per_page') }}">
+        {% endif %}
         <div class="input-group mr-2 w-100" style="max-width:400px;">
           <input type="text" name="search" class="form-control bg-light border-0 small" placeholder="Search activities..." value="{{ search }}">
           <div class="input-group-append">
@@ -430,6 +436,9 @@ h1, h2, h3, h4, h5, h6 {
             </button>
           </div>
         </div>
+          <div class="ml-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="resetColWidths('dataTable')" title="Reset column widths">Reset columns</button>
+          </div>
       </form>
       <div class="table-responsive">
         <table class="table table-bordered table-hover tablesorter" id="dataTable" cellspacing="0">
@@ -451,17 +460,17 @@ h1, h2, h3, h4, h5, h6 {
             {% for activity in activities.items %}
             <tr>
               <td class="fw-bold text-primary text-truncate">
-                <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="text-decoration-underline text-primary" title="View History">
+                <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="text-decoration-underline text-primary" title="{{ activity.activity_id }}" data-toggle="tooltip" data-placement="top">
                   {{ activity.activity_id }}
                 </a>
               </td>
-              <td class="text-truncate">{{ activity.details|truncate(30) }}</td>
-              <td>
+              <td class="text-truncate" title="{{ activity.details }}" data-toggle="tooltip" data-placement="top">{{ activity.details|truncate(30) }}</td>
+              <td class="text-truncate" title="{% for user in activity.assignees %}{{ user.username }} {% endfor %}" data-toggle="tooltip" data-placement="top">
                 {% for user in activity.assignees %}
                   <span class="badge badge-primary mr-1">{{ user.username }}</span>
                 {% endfor %}
               </td>
-              <td class="text-truncate">{{ activity.node_name }}</td>
+              <td class="text-truncate" title="{{ activity.node_name }}" data-toggle="tooltip" data-placement="top">{{ activity.node_name }}</td>
               <td>{{ activity.activity_type }}</td>
               <td>
                 <span class="badge badge-{{ status_color_map.get(activity.status|lower, 'light') }}">
