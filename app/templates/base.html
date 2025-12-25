@@ -28,6 +28,50 @@
     margin-left: 0 !important;
     width: 100% !important;
   }
+        /* Improved sorting arrows for table headers (cleaner double-triangle style) */
+        .table th.sorting,
+        .table th.sorting_asc,
+        .table th.sorting_desc {
+            position: relative;
+            padding-right: 28px; /* space for arrows */
+        }
+        .table th.sorting:before,
+        .table th.sorting:after,
+        .table th.sorting_asc:before,
+        .table th.sorting_desc:after {
+            content: '';
+            position: absolute;
+            right: 8px;
+            display: block;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            opacity: 0.35;
+            transition: opacity .12s ease, border-color .12s ease, transform .12s ease;
+        }
+        /* up triangle */
+        .table th.sorting:before,
+        .table th.sorting_asc:before {
+            border-bottom: 7px solid #6c757d;
+            top: calc(50% - 6px);
+            transform: translateY(-2px);
+        }
+        /* down triangle */
+        .table th.sorting:after,
+        .table th.sorting_desc:after {
+            border-top: 7px solid #6c757d;
+            top: calc(50% + 0px);
+            transform: translateY(2px);
+        }
+        .table th.sorting:hover:before,
+        .table th.sorting:hover:after { opacity: 0.6; }
+        /* active states */
+        .table th.sorting_asc:before { border-bottom-color: #007bff; opacity: 1; }
+        .table th.sorting_desc:after { border-top-color: #007bff; opacity: 1; }
+        /* make smaller for compact tables */
+        .table.table-sm th.sorting:before,
+        .table.table-sm th.sorting:after { border-left-width:5px; border-right-width:5px; border-top-width:6px; border-bottom-width:6px; }
 </style>
 {% endblock %}
 </head>
@@ -204,6 +248,8 @@ $(document).ready(function() {
 /* small grip style for column resize */
 .col-resize-grip { width: 6px; height: 100%; background: transparent; display:block; }
 .dragging { cursor: col-resize; }
+.native-col-grip { background: rgba(0,0,0,0); transition: background .12s ease; }
+.native-col-grip:hover { background: rgba(0,0,0,0.06); }
 </style>
 <script>
 function saveColWidths(tableId) {
@@ -252,6 +298,105 @@ function initResizableTable(tableId) {
 function resetColWidths(tableId) {
     try { localStorage.removeItem('colWidths:' + tableId); location.reload(); } catch (err) { console.warn('resetColWidths failed', err); }
 }
+// Native fallback resizer (no dependency) ---------------------------------------------------------
+function initNativeResizable(tableId) {
+    var $table = $('#' + tableId);
+    if (!$table.length) return;
+    if ($table.data('nativeResizable')) { console.log('native resizer already initialized for', tableId); return; }
+    console.log('initNativeResizable: initializing native resizer for', tableId);
+    $table.css('table-layout', 'fixed');
+    var $ths = $table.find('thead th');
+    // ensure each th has an explicit width
+    $ths.each(function() {
+        var $th = $(this);
+        if (!$th.width() || $th.css('width') === 'auto') {
+            $th.width($th.width());
+        }
+    });
+    // create grips
+    // prefer the .table-responsive ancestor if present so grips align with scrollable area
+    var $container = $table.closest('.table-responsive');
+    if (!$container.length) $container = $table.parent();
+    // ensure container is positioned so absolute grips align correctly and allow visible overflow
+    try {
+        var pos = $container.css('position');
+        if (!pos || pos === 'static') $container.css('position', 'relative');
+        // make sure grips are visible (some wrappers use overflow:hidden)
+        var ov = $container.css('overflow');
+        if (!ov || ov === 'hidden') $container.css('overflow', 'visible');
+    } catch (err) { }
+    $ths.each(function(i) {
+        if (i === $ths.length - 1) return; // no grip after last
+        var $th = $(this);
+        var grip = $('<div class="native-col-grip" data-idx="' + i + '" style="position:absolute; width:8px; top:0; bottom:0; cursor:col-resize; z-index:10;"></div>');
+        $container.append(grip);
+        // small timeout to ensure DOM layout stabilized (DataTables/Bootstrap may adjust header)
+        setTimeout(function() { positionGrip(grip, $th); }, 30);
+        console.log('initNativeResizable: added grip for', tableId, 'col', i);
+
+        grip.on('mousedown touchstart', function(e) {
+            e.preventDefault();
+            var startX = (e.touches ? e.touches[0].pageX : e.pageX);
+            var leftTh = $ths.eq(i);
+            var rightTh = $ths.eq(i+1);
+            var leftW = leftTh.outerWidth();
+            var rightW = rightTh.outerWidth();
+            $(document).on('mousemove.nativeResize touchmove.nativeResize', function(ev) {
+                var curX = (ev.touches ? ev.touches[0].pageX : ev.pageX);
+                var delta = curX - startX;
+                var newLeft = Math.max(40, leftW + delta);
+                var newRight = Math.max(40, rightW - delta);
+                leftTh.width(newLeft);
+                rightTh.width(newRight);
+                // reposition grips as widths change
+                $ths.each(function(j){ var $tj = $(this); var g = $container.find('.native-col-grip[data-idx="'+j+'"]'); if (g.length) positionGrip(g, $tj); });
+            });
+            $(document).one('mouseup touchend', function() {
+                $(document).off('.nativeResize');
+                saveColWidths(tableId);
+            });
+        });
+    });
+    // reposition on window resize
+    $(window).on('resize.nativeResize', function(){ $ths.each(function(j){ var $tj = $(this); var g = $container.find('.native-col-grip[data-idx="'+j+'"]'); if (g.length) positionGrip(g, $tj); }); });
+    $table.data('nativeResizable', true);
+
+    function positionGrip($grip, $th) {
+        var off = $th.offset();
+        var containerOff = $container.offset();
+        var left = off.left + $th.outerWidth() - containerOff.left - 4; // center grip
+        $grip.css('left', left + 'px');
+    }
+}
+
+// If plugin fails to load, fallback to native resizer for both tables; also fall back
+// when plugin exists but didn't create grips after a short interval
+function ensureResizableFallback() {
+    try {
+        if (!($.fn && $.fn.colResizable)) {
+            console.log('colResizable not available; initializing native resizer fallback');
+            initNativeResizable('dataTable');
+            initNativeResizable('teamActivitiesTable');
+            return;
+        }
+        // plugin exists; check for grips and fallback if none are present after init
+        setTimeout(function(){ checkAndFallback('dataTable'); }, 200);
+        setTimeout(function(){ checkAndFallback('teamActivitiesTable'); }, 200);
+        // a second check later in case of slower rendering
+        setTimeout(function(){ checkAndFallback('dataTable'); }, 1200);
+        setTimeout(function(){ checkAndFallback('teamActivitiesTable'); }, 1200);
+
+        function checkAndFallback(tableId) {
+            var $t = $('#' + tableId);
+            if (!$t.length) return;
+            var hasGrip = $t.find('.JCLRgrip, .col-resize-grip, .native-col-grip').length > 0;
+            if (!hasGrip) {
+                console.log('no plugin grips found for', tableId, '; initializing native fallback');
+                initNativeResizable(tableId);
+            }
+        }
+    } catch (err) { console.warn('ensureResizableFallback failed', err); }
+}
 
 // Initialize tooltips and resizable tables after window load (ensures DataTables is ready)
 $(window).on('load', function() {
@@ -269,6 +414,8 @@ $(window).on('load', function() {
     ensureColResizable(function() {
         initResizableTable('dataTable');
         initResizableTable('teamActivitiesTable');
+        // if plugin missing or did not install grips correctly, ensure fallback
+        ensureResizableFallback();
     });
 });
 </script>
