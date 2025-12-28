@@ -240,6 +240,12 @@ $(document).ready(function() {
     } catch (err) {
         // ignore
     }
+        // Initialize Select2 on any selects that have the class if plugin is available
+        try {
+            if ($.fn && $.fn.select2) {
+                $('.select2').select2({ width: '100%' });
+            }
+        } catch (err) { console.warn('select2 init failed', err); }
 });
 </script>
 <!-- colResizable plugin for drag-to-resize table columns -->
@@ -250,6 +256,11 @@ $(document).ready(function() {
 .dragging { cursor: col-resize; }
 .native-col-grip { background: rgba(0,0,0,0); transition: background .12s ease; }
 .native-col-grip:hover { background: rgba(0,0,0,0.06); }
+/* Allow table cells to wrap text when column width changes (opt-in) */
+.allow-wrap { white-space: normal !important; word-break: break-word; overflow-wrap: anywhere; }
+.table td.allow-wrap, .table th.allow-wrap { vertical-align: top; }
+/* When a cell cannot fit on one line, we can toggle to an ellipsis mode for compact display */
+.allow-wrap.smart-truncate { white-space: nowrap !important; overflow: hidden; text-overflow: ellipsis; }
 </style>
 <script>
 function saveColWidths(tableId) {
@@ -289,7 +300,7 @@ function initResizableTable(tableId) {
             liveDrag: true,
             gripInnerHtml: '<div class="col-resize-grip"></div>',
             draggingClass: 'dragging',
-            onResize: function() { saveColWidths(tableId); }
+            onResize: function() { saveColWidths(tableId); if (typeof toggleSmartTruncate === 'function') toggleSmartTruncate(tableId); }
         });
         // ensure widths saved when drag ends
         $('#' + tableId + ' thead').on('mouseup touchend', function() { saveColWidths(tableId); });
@@ -354,6 +365,7 @@ function initNativeResizable(tableId) {
             $(document).one('mouseup touchend', function() {
                 $(document).off('.nativeResize');
                 saveColWidths(tableId);
+                if (typeof toggleSmartTruncate === 'function') toggleSmartTruncate(tableId);
             });
         });
     });
@@ -393,9 +405,31 @@ function ensureResizableFallback() {
             if (!hasGrip) {
                 console.log('no plugin grips found for', tableId, '; initializing native fallback');
                 initNativeResizable(tableId);
+                if (typeof toggleSmartTruncate === 'function') toggleSmartTruncate(tableId);
             }
         }
     } catch (err) { console.warn('ensureResizableFallback failed', err); }
+}
+
+// Smart truncate: detect when content would overflow on a single line and switch
+// between wrapping and single-line ellipsis for better UX on narrow columns.
+function toggleSmartTruncate(tableId) {
+    try {
+        var $t = $('#' + tableId);
+        if (!$t.length) return;
+        $t.find('tbody td.allow-wrap').each(function() {
+            var $cell = $(this);
+            // Create an offscreen clone to measure single-line width
+            var clone = $('<div/>').css({position:'absolute', visibility:'hidden', whiteSpace:'nowrap', font: $cell.css('font'), fontSize: $cell.css('font-size'), fontFamily: $cell.css('font-family')}).text($cell.text()).appendTo('body');
+            var fits = clone.width() <= $cell.width();
+            clone.remove();
+            if (!fits) {
+                $cell.addClass('smart-truncate');
+            } else {
+                $cell.removeClass('smart-truncate');
+            }
+        });
+    } catch (err) { console.warn('toggleSmartTruncate failed for', tableId, err); }
 }
 
 // Initialize tooltips and resizable tables after window load (ensures DataTables is ready)
@@ -416,8 +450,21 @@ $(window).on('load', function() {
         initResizableTable('teamActivitiesTable');
         // if plugin missing or did not install grips correctly, ensure fallback
         ensureResizableFallback();
+        // Initial smart-truncate pass so cells render appropriately
+        if (typeof toggleSmartTruncate === 'function') {
+            toggleSmartTruncate('dataTable');
+            toggleSmartTruncate('teamActivitiesTable');
+            toggleSmartTruncate('teamDashboardTable');
+        }
+        if (typeof toggleSmartTruncate === 'function') {
+            toggleSmartTruncate('dataTable');
+            toggleSmartTruncate('teamActivitiesTable');
+            toggleSmartTruncate('teamDashboardTable');
+        }
     });
 });
+// Re-evaluate truncation on window resize and after a short delay (to catch layout changes)
+$(window).on('resize', function() { setTimeout(function(){ if (typeof toggleSmartTruncate === 'function') { toggleSmartTruncate('dataTable'); toggleSmartTruncate('teamActivitiesTable'); toggleSmartTruncate('teamDashboardTable'); } }, 120); });
 </script>
 {% endblock %}
 </body>

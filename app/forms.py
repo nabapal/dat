@@ -15,6 +15,9 @@ class ActivityForm(FlaskForm):
     start_date = DateField('Start Date', format='%Y-%m-%d', validators=[DataRequired()])
     end_date = DateField('End Date', format='%Y-%m-%d', validators=[Optional()])
     assigned_to = SelectMultipleField('Assign To', coerce=int, validators=[DataRequired()])
+    # Optional initial update fields when creating an activity
+    initial_update_text = TextAreaField('Initial Update', validators=[Optional()])
+    initial_update_date = DateField('Initial Update Date', format='%Y-%m-%d', validators=[Optional()])
     submit = SubmitField('Save Activity')
 
 class DummyDropdownForm(FlaskForm):

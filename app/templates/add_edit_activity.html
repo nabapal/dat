@@ -46,11 +46,27 @@
             </div>
             <div class="mb-3">
               {{ form.assigned_to.label(class="form-label font-weight-bold") }}
-              {{ form.assigned_to(class="form-select", multiple=true) }}
+              {{ form.assigned_to(class="form-select select2", multiple=true) }}
               {% if current_user.role == 'team_lead' %}
                 <small class="form-text text-muted">Hold Ctrl (Windows) or Cmd (Mac) to select multiple team members.</small>
+              {% else %}
+                <small class="form-text text-muted">You can assign this activity to other members of your team.</small>
               {% endif %}
             </div>
+            {# Optional initial update fields only when creating a new activity #}
+            {% if not activity %}
+            <hr />
+            <div class="mb-2"><strong>Add an initial update (optional)</strong></div>
+            <div class="mb-3">
+              {{ form.initial_update_date.label(class="form-label font-weight-bold") }}
+              {{ form.initial_update_date(class="form-control") }}
+            </div>
+            <div class="mb-3">
+              {{ form.initial_update_text.label(class="form-label font-weight-bold") }}
+              {{ form.initial_update_text(class="form-control", rows=3, style="min-height:80px;") }}
+              <small class="form-text text-muted">Leave blank if no initial update is required.</small>
+            </div>
+            {% endif %}
             <div class="d-flex justify-content-end gap-2">
               <a href="{{ url_for('dashboard') }}" class="btn btn-secondary btn-sm">Cancel</a>
               <button type="submit" class="btn btn-primary btn-sm">{{ 'Save Changes' if activity else 'Add Activity' }}</button>

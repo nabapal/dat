@@ -128,14 +128,41 @@ def add_activity():
         team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
         form.assigned_to.choices = [(u.id, u.username) for u in team_members]
     else:
-        form.assigned_to.choices = [(current_user.id, current_user.username)]
-        if not form.assigned_to.data:
+        # Regular users may assign activities to members of their own teams
+        team_ids = [t.id for t in current_user.teams]
+        if team_ids:
+            team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+            form.assigned_to.choices = [(u.id, u.username) for u in team_members]
+        else:
+            form.assigned_to.choices = [(current_user.id, current_user.username)]
+        # Default selection is current user
+        if request.method == 'GET' and not form.assigned_to.data:
             form.assigned_to.data = [current_user.id]
-    # Set default values only on GET so we don't override user-submitted values on POST
+    # Set default values only on GET so we don't override user-submitted values on POST.
+    # Leave end_date blank for new activities so users can choose to set it if needed.
     if request.method == 'GET':
         form.start_date.data = datetime.now().date()
-        form.end_date.data = (datetime.now() + timedelta(days=7)).date()
+        form.end_date.data = None
     if form.validate_on_submit():
+        # Validate that selected assignees are allowed per policy
+        selected_ids = [int(i) for i in form.assigned_to.data]
+        allowed_ids = set()
+        if current_user.role == 'super_lead':
+            allowed_ids = set(u.id for u in User.query.all())
+        elif current_user.role == 'team_lead':
+            team_ids = [t.id for t in current_user.teams]
+            team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+            allowed_ids = set(u.id for u in team_members)
+        else:
+            team_ids = [t.id for t in current_user.teams]
+            if team_ids:
+                team_members = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+                allowed_ids = set(u.id for u in team_members)
+            else:
+                allowed_ids = {current_user.id}
+        if not set(selected_ids).issubset(allowed_ids):
+            flash('Invalid assignee selected. You can only assign to members of your teams.', 'danger')
+            return render_template('add_edit_activity.html', form=form)
         # Generate unique activity_id: timestamp + incremental number
         timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
         activity_count = Activity.query.count() + 1
@@ -158,6 +185,17 @@ def add_activity():
         activity.assignees.extend(assignees)
         db.session.add(activity)
         db.session.commit()
+        # If initial update provided, create an ActivityUpdate linked to this activity
+        if form.initial_update_text.data:
+            upd_date = form.initial_update_date.data or datetime.now().date()
+            update = ActivityUpdate(
+                activity_id=activity.id,
+                update_text=form.initial_update_text.data,
+                update_date=upd_date,
+                updated_by=current_user.id
+            )
+            db.session.add(update)
+            db.session.commit()
         flash('Activity created successfully!', 'success')
         return redirect(url_for('dashboard'))
     return render_template('add_edit_activity.html', form=form)
@@ -186,10 +224,31 @@ def edit_activity(id):
     if current_user.role in ['team_lead', 'super_lead']:
         form.assigned_to.choices = [(u.id, u.username) for u in team_members]
     else:
-        form.assigned_to.choices = [(current_user.id, current_user.username)]
+        # Regular users may assign activities to members of their own teams
+        team_ids = [t.id for t in current_user.teams]
+        if team_ids:
+            tmembers = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+            form.assigned_to.choices = [(u.id, u.username) for u in tmembers]
+        else:
+            form.assigned_to.choices = [(current_user.id, current_user.username)]
     if request.method == 'GET':
         form.assigned_to.data = [u.id for u in activity.assignees]
     if form.validate_on_submit():
+        # Validate assignments are allowed for the current user
+        selected_ids = [int(i) for i in form.assigned_to.data]
+        allowed_ids = set()
+        if current_user.role in ['team_lead', 'super_lead']:
+            allowed_ids = set(u.id for u in team_members)
+        else:
+            team_ids = [t.id for t in current_user.teams]
+            if team_ids:
+                tmembers = User.query.join(User.teams).filter(Team.id.in_(team_ids)).distinct().all()
+                allowed_ids = set(u.id for u in tmembers)
+            else:
+                allowed_ids = {current_user.id}
+        if not set(selected_ids).issubset(allowed_ids):
+            flash('Invalid assignee selected. You can only assign to members of your teams.', 'danger')
+            return render_template('add_edit_activity.html', form=form, activity=activity)
         if current_user.role in ['team_lead', 'super_lead']:
             activity.assignees = User.query.filter(User.id.in_(form.assigned_to.data)).all()
         form.populate_obj(activity)
@@ -215,7 +274,27 @@ def view_updates(activity_id):
         return redirect(url_for('dashboard'))
     updates = ActivityUpdate.query.filter_by(activity_id=activity.id).order_by(ActivityUpdate.update_date.desc()).all()
     user_map = {u.id: u.username for u in User.query.all()}
-    return render_template('view_updates.html', activity=activity, updates=updates, user_map=user_map)
+    # Determine a sensible default update to edit (latest one the user is allowed to edit)
+    editable_update_id = None
+    for u in updates:
+        if current_user.id == u.updated_by or current_user.role == 'team_lead':
+            editable_update_id = u.id
+            break
+    # Compute whether current user can edit the activity (used to show a page-level Edit button)
+    can_edit_activity = False
+    if current_user.role in ['super_lead', 'admin']:
+        can_edit_activity = True
+    elif current_user in activity.assignees:
+        can_edit_activity = True
+    elif current_user.role == 'team_lead':
+        team_ids = [t.id for t in current_user.teams]
+        # If any assignee belongs to one of the lead's teams, allow edit
+        assignee_team_ids = set()
+        for a in activity.assignees:
+            assignee_team_ids.update([t.id for t in a.teams])
+        if set(team_ids).intersection(assignee_team_ids):
+            can_edit_activity = True
+    return render_template('view_updates.html', activity=activity, updates=updates, user_map=user_map, editable_update_id=editable_update_id, can_edit_activity=can_edit_activity)
 
 @app.route('/activity/<int:activity_id>/add_update', methods=['GET', 'POST'])
 @login_required
@@ -246,8 +325,8 @@ def add_update(activity_id):
 def edit_update(update_id):
     update = ActivityUpdate.query.get_or_404(update_id)
     activity = Activity.query.get_or_404(update.activity_id)
-    # Only updater or team lead can edit
-    if not (current_user.id == update.updated_by or current_user.role == 'team_lead'):
+    # Only updater or team lead / super_lead / admin can edit
+    if not (current_user.id == update.updated_by or current_user.role in ['team_lead', 'super_lead', 'admin']):
         flash('Not authorized to edit this update.', 'danger')
         return redirect(url_for('view_updates', activity_id=activity.id))
     form = UpdateForm(obj=update)
@@ -264,8 +343,8 @@ def edit_update(update_id):
 def delete_update(update_id):
     update = ActivityUpdate.query.get_or_404(update_id)
     activity_id = update.activity_id
-    # Only updater or team lead can delete
-    if not (current_user.id == update.updated_by or current_user.role == 'team_lead'):
+    # Only updater or team lead / super_lead / admin can delete
+    if not (current_user.id == update.updated_by or current_user.role in ['team_lead', 'super_lead', 'admin']):
         flash('Not authorized to delete this update.', 'danger')
         return redirect(url_for('view_updates', activity_id=activity_id))
     db.session.delete(update)
