@@ -111,6 +111,7 @@
               <th>Type</th>
               <th>Start Date</th>
               <th>End Date</th>
+              <th>Aging</th>
               <th>Days Contributed</th>
               <th>Actions</th>
             </tr>
@@ -140,6 +141,7 @@
               <td class="allow-wrap">{{ activity.activity_type }}</td>
               <td class="allow-wrap">{{ activity.start_date.strftime('%Y-%m-%d') }}</td>
               <td class="allow-wrap">{% if activity.end_date %}{{ activity.end_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
+              <td>{{ activity.age_days }} days</td>
               <td>{{ activity.update_days_count }}</td>
               <td>
                 <a href="{{ url_for('edit_activity', id=activity.id) }}" class="btn btn-sm btn-primary mr-1" title="Edit"><i class="fas fa-edit"></i></a>
@@ -151,7 +153,7 @@
               </td>
               
             {% else %}
-            <tr><td colspan="10" class="text-center">No activities found.</td></tr>
+            <tr><td colspan="11" class="text-center">No activities found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -251,9 +253,7 @@ $(document).ready(function() {
       setTimeout(function(){ initResizableTable('teamActivitiesTable'); }, 250);
       setTimeout(function(){ initResizableTable('teamActivitiesTable'); }, 1000);
     } catch (err) { console.warn('initResizable for #teamActivitiesTable failed', err); }
-    $('#sidebarToggle').on('click', function(e) {
-        $('#wrapper').toggleClass('sidebar-hidden');
-    });
+    // Sidebar toggle handled centrally in base.html to persist state
 });
 </script>
 {% endblock %}

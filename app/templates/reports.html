@@ -145,9 +145,7 @@ $(document).ready(function() {
         ordering: true,
         order: []
     });
-    $('#sidebarToggle').on('click', function(e) {
-        $('#wrapper').toggleClass('sidebar-hidden');
-    });
+    // Sidebar toggle is handled in base.html so the hidden state persists across pages
 });
 </script>
 {% endblock %}

@@ -221,8 +221,6 @@
   $(function () {
     $('[data-toggle="tooltip"]').tooltip();
   });
-  $('#sidebarToggle').on('click', function(e) {
-    $('#wrapper').toggleClass('sidebar-hidden');
-  });
+  // Sidebar toggle: handled in base.html (persists state via localStorage)
 </script>
 {% endblock %}
