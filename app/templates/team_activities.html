@@ -118,13 +118,13 @@
           <tbody>
             {% for activity in activities.items %}
             <tr>
-              <td class="fw-bold text-primary text-truncate">
+              <td class="fw-bold text-primary allow-wrap">
                     <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="text-decoration-underline text-primary" title="{{ activity.activity_id }}" data-toggle="tooltip" data-placement="top">
                   {{ activity.activity_id }}
                 </a>
               </td>
-                  <td class="text-truncate" title="{{ activity.details }}" data-toggle="tooltip" data-placement="top">{{ activity.details|truncate(30) }}</td>
-              <td class="text-truncate" title="{% for user in activity.assignees %}{{ user.username }} {% endfor %}" data-toggle="tooltip" data-placement="top">
+                    <td class="allow-wrap" title="{{ activity.details }}" data-toggle="tooltip" data-placement="top">{{ activity.details }}</td>
+                  <td class="allow-wrap" title="{% for user in activity.assignees %}{{ user.username }} {% endfor %}" data-toggle="tooltip" data-placement="top">
                 {% for user in activity.assignees %}
                   <span class="badge badge-primary mr-1">{{ user.username }}</span>
                 {% endfor %}
@@ -136,10 +136,10 @@
                   </span>
                 </div>
               </td>
-              <td class="text-truncate">{{ activity.node_name }}</td>
-              <td class="text-truncate">{{ activity.activity_type }}</td>
-              <td class="text-truncate">{{ activity.start_date.strftime('%Y-%m-%d') }}</td>
-              <td class="text-truncate">{% if activity.end_date %}{{ activity.end_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
+              <td class="allow-wrap">{{ activity.node_name }}</td>
+              <td class="allow-wrap">{{ activity.activity_type }}</td>
+              <td class="allow-wrap">{{ activity.start_date.strftime('%Y-%m-%d') }}</td>
+              <td class="allow-wrap">{% if activity.end_date %}{{ activity.end_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
               <td>{{ activity.update_days_count }}</td>
               <td>
                 <a href="{{ url_for('edit_activity', id=activity.id) }}" class="btn btn-sm btn-primary mr-1" title="Edit"><i class="fas fa-edit"></i></a>
@@ -156,6 +156,10 @@
           </tbody>
         </table>
       </div>
+      <script>
+        // Ensure smart truncation runs after page-level render and when resizing columns
+        $(function(){ if (typeof toggleSmartTruncate === 'function') toggleSmartTruncate('teamActivitiesTable'); });
+      </script>
       {% if activities.pages is defined %}
         <div class="row align-items-center mt-3">
           <div class="col-auto">

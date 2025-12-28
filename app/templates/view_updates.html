@@ -4,7 +4,15 @@
 <div class="container-fluid">
   <div class="d-sm-flex align-items-center justify-content-between mb-4">
     <h1 class="h3 mb-0 text-gray-800">Activity Updates</h1>
-    <a href="{{ url_for('add_update', activity_id=activity.id) }}" class="btn btn-primary btn-sm"><i class="fas fa-plus fa-sm"></i> Add Update</a>
+    <div>
+      <a href="{{ url_for('add_update', activity_id=activity.id) }}" class="btn btn-primary btn-sm"><i class="fas fa-plus fa-sm"></i> Add Update</a>
+      {% if can_edit_activity %}
+        <a href="{{ url_for('edit_activity', id=activity.id) }}" class="btn btn-secondary btn-sm ml-2"><i class="fas fa-edit fa-sm"></i> Edit Activity</a>
+      {% endif %}
+      {% if editable_update_id %}
+        <a href="{{ url_for('edit_update', update_id=editable_update_id) }}" class="btn btn-outline-primary btn-sm ml-2"><i class="fas fa-edit fa-sm"></i> Edit Update</a>
+      {% endif %}
+    </div>
   </div>
   <div class="card shadow mb-4">
     <div class="card-header py-3">
@@ -34,11 +42,14 @@
               {{ update.update_text }}
             </div>
             <div>
-              <a href="{{ url_for('edit_update', update_id=update.id) }}" class="btn btn-sm btn-primary mr-1" title="Edit"><i class="fas fa-edit"></i></a>
-              <form method="POST" action="{{ url_for('delete_update', update_id=update.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this update?');">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
-              </form>
+              {# Only show edit/delete controls to the updater or a team lead (same logic as routes) #}
+              {% if current_user.id == update.updated_by or current_user.role in ['team_lead', 'super_lead', 'admin'] %}
+                <a href="{{ url_for('edit_update', update_id=update.id) }}" class="btn btn-sm btn-primary mr-1" title="Edit"><i class="fas fa-edit"></i></a>
+                <form method="POST" action="{{ url_for('delete_update', update_id=update.id) }}" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this update?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                </form>
+              {% endif %}
             </div>
           </div>
         </li>

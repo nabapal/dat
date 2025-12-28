@@ -12,12 +12,17 @@
           <form method="POST">
             {{ form.hidden_tag() }}
             <div class="mb-3">
-              {{ form.update_text.label(class="form-label font-weight-bold") }}
-              {{ form.update_text(class="form-control", rows=4) }}
+              <strong>Activity:</strong>
+              <div class="mt-1">{{ activity.details }}</div>
             </div>
             <div class="mb-3">
               {{ form.update_date.label(class="form-label font-weight-bold") }}
               {{ form.update_date(class="form-control") }}
+            </div>
+            <div class="mb-3">
+              {{ form.update_text.label(class="form-label font-weight-bold") }}
+              {{ form.update_text(class="form-control", rows=6, style="min-height:120px; resize:vertical;") }}
+              <small class="form-text text-muted">Tip: you can press Enter for multiple lines. The box will grow if needed.</small>
             </div>
             <div class="d-flex justify-content-end gap-2">
               <a href="{{ url_for('view_updates', activity_id=activity.id) }}" class="btn btn-secondary btn-sm">Cancel</a>

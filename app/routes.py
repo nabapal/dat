@@ -249,8 +249,8 @@ def edit_activity(id):
         if not set(selected_ids).issubset(allowed_ids):
             flash('Invalid assignee selected. You can only assign to members of your teams.', 'danger')
             return render_template('add_edit_activity.html', form=form, activity=activity)
-        if current_user.role in ['team_lead', 'super_lead']:
-            activity.assignees = User.query.filter(User.id.in_(form.assigned_to.data)).all()
+        # Update assignees for all users (after validating permissions above)
+        activity.assignees = User.query.filter(User.id.in_(form.assigned_to.data)).all()
         form.populate_obj(activity)
         db.session.commit()
         flash('Activity updated successfully!', 'success')

@@ -442,13 +442,13 @@ h1, h2, h3, h4, h5, h6 {
                   {{ activity.activity_id }}
                 </a>
               </td>
-              <td class="text-truncate" title="{{ activity.details }}" data-toggle="tooltip" data-placement="top">{{ activity.details|truncate(30) }}</td>
-              <td class="text-truncate" title="{% for user in activity.assignees %}{{ user.username }} {% endfor %}" data-toggle="tooltip" data-placement="top">
+              <td class="allow-wrap" title="{{ activity.details }}" data-toggle="tooltip" data-placement="top">{{ activity.details }}</td>
+              <td class="allow-wrap" title="{% for user in activity.assignees %}{{ user.username }} {% endfor %}" data-toggle="tooltip" data-placement="top">
                 {% for user in activity.assignees %}
                   <span class="badge badge-primary mr-1">{{ user.username }}</span>
                 {% endfor %}
               </td>
-              <td class="text-truncate" title="{{ activity.node_name }}" data-toggle="tooltip" data-placement="top">{{ activity.node_name }}</td>
+              <td class="allow-wrap" title="{{ activity.node_name }}" data-toggle="tooltip" data-placement="top">{{ activity.node_name }}</td>
               <td>{{ activity.activity_type }}</td>
               <td>
                 <span class="badge badge-{{ status_color_map.get(activity.status|lower, 'light') }}">

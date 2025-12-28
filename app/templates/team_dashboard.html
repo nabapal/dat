@@ -64,8 +64,8 @@
           <tbody>
             {% for activity in activities %}
             <tr>
-              <td class="fw-bold text-primary text-truncate">{{ activity.activity_id }}</td>
-              <td class="text-truncate">{{ activity.details|truncate(30) }}</td>
+              <td class="fw-bold text-primary allow-wrap">{{ activity.activity_id }}</td>
+              <td class="allow-wrap">{{ activity.details }}</td>
               <td>
                 {% for user in activity.assignees %}
                   <span class="badge badge-primary mr-1">{{ user.username }}</span>
@@ -74,10 +74,10 @@
               <td>
                 <span class="badge {% if activity.status == 'completed' %}badge-success{% elif activity.status == 'in_progress' %}badge-warning{% elif activity.status == 'pending' %}badge-info{% else %}badge-secondary{% endif %}">{{ activity.status|capitalize }}</span>
               </td>
-              <td class="text-truncate">{{ activity.node_name }}</td>
-              <td class="text-truncate">{{ activity.activity_type }}</td>
-              <td class="text-truncate">{{ activity.start_date.strftime('%Y-%m-%d') if activity.start_date else '' }}</td>
-              <td class="text-truncate">{{ activity.end_date.strftime('%Y-%m-%d') if activity.end_date else '' }}</td>
+              <td class="allow-wrap">{{ activity.node_name }}</td>
+              <td class="allow-wrap">{{ activity.activity_type }}</td>
+              <td class="allow-wrap">{{ activity.start_date.strftime('%Y-%m-%d') if activity.start_date else '' }}</td>
+              <td class="allow-wrap">{{ activity.end_date.strftime('%Y-%m-%d') if activity.end_date else '' }}</td>
             </tr>
             {% else %}
             <tr><td colspan="8" class="text-center">No activities found.</td></tr>
@@ -130,6 +130,10 @@ $(document).ready(function() {
     }
     table.on('draw', updateCount);
     updateCount();
+    // Ensure smart truncation is applied after DataTables draws
+    table.on('draw', function() { if (typeof toggleSmartTruncate === 'function') toggleSmartTruncate('teamDashboardTable'); });
+    // initial pass
+    if (typeof toggleSmartTruncate === 'function') toggleSmartTruncate('teamDashboardTable');
 });
 </script>
 {% endblock %}
