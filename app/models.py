@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from . import db
 
 activity_assignees = db.Table('activity_assignees',
@@ -45,6 +45,34 @@ class Activity(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     assignees = db.relationship('User', secondary=activity_assignees, backref='activities_assigned_to', lazy='dynamic')
 
+    @property
+    def age_days(self):
+        """Return the difference in days between start_date and end_date (or today if end_date is None)."""
+        if not self.start_date:
+            return None
+        # Normalize to date objects
+        start = self.start_date.date() if isinstance(self.start_date, datetime) else self.start_date
+        end = None
+        if self.end_date:
+            end = self.end_date.date() if isinstance(self.end_date, datetime) else self.end_date
+        else:
+            end = date.today()
+        try:
+            return (end - start).days
+        except Exception:
+            return None
+
+    @property
+    def age_days(self):
+        """Return difference in days between start_date and end_date (or today if end_date is None)."""
+        if not self.start_date:
+            return None
+        # Normalize to date objects
+        start = self.start_date.date() if isinstance(self.start_date, datetime) else self.start_date
+        end_dt = self.end_date or datetime.utcnow()
+        end = end_dt.date() if isinstance(end_dt, datetime) else end_dt
+        delta = end - start
+        return delta.days
 class ActivityUpdate(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     activity_id = db.Column(db.Integer, db.ForeignKey('activity.id'), nullable=False)

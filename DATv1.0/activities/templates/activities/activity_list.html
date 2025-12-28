@@ -8,6 +8,7 @@
         <span>
           <strong>{{ activity.activity_id }}</strong> - {{ activity.details|truncatechars:50 }}
           <span class="badge bg-{{ activity.status.color }} ms-2">{{ activity.status.name }}</span>
+          <small class="text-muted ml-2">{{ activity.age_days }} days</small>
         </span>
         <span>
           <a class="btn btn-sm btn-info" href="{% url 'activity_updates' activity.pk %}">Updates</a>

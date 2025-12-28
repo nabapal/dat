@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import User, Team
+from datetime import date
 from attributes.models import Node, ActivityType, Status
 
 class Activity(models.Model):
@@ -20,6 +21,15 @@ class Activity(models.Model):
 
     def __str__(self):
         return self.activity_id
+
+    @property
+    def age_days(self):
+        """Return aging in days between start_date and end_date (or today if end_date is None)."""
+        if not self.start_date:
+            return None
+        start = self.start_date.date()
+        end = self.end_date.date() if self.end_date else date.today()
+        return (end - start).days
 
 class ActivityUpdate(models.Model):
     activity = models.ForeignKey(Activity, on_delete=models.CASCADE)
