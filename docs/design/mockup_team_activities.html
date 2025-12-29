@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>DAT Mockup - Team Activities</title>
+<link rel="stylesheet" href="theme.css">
+</head><body>
+<div class="container-mock">
+  <div class="header">
+    <div class="logo">DAT — Team Activities</div>
+    <div style="display:flex; gap:8px; align-items:center">
+      <div id="theme-toggle" class="toggle">Toggle theme</div>
+      <div class="btn">User</div>
+    </div>
+  </div>
+  <div style="margin-top:16px">
+    <div class="card">
+      <h4 class="small">Team Activities</h4>
+      <table class="table">
+        <thead><tr><th>Activity</th><th>Type</th><th>Lead</th><th>Aging</th><th class="small">Actions</th></tr></thead>
+        <tbody>
+          <tr><td>Weekly report</td><td>Report</td><td>alice</td><td>3 days</td><td><button class="btn small">Edit</button></td></tr>
+          <tr><td>Onboard contractor</td><td>Onboarding</td><td>bob</td><td>12 days</td><td><button class="btn small">Edit</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<script>
+const apply = t => document.documentElement.setAttribute('data-theme', t);
+const stored = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light'); apply(stored);
+Array.from(document.querySelectorAll('#theme-toggle')).forEach(el => el.addEventListener('click', ()=>{const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; apply(cur); localStorage.setItem('theme', cur)}));
+</script>
+</body></html>

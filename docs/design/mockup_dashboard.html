@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>DAT Mockup - Dashboard</title>
+<link rel="stylesheet" href="theme.css">
+<style>.topbar{height:56px; display:flex; align-items:center; gap:12px}.logo{font-weight:700}</style>
+</head><body>
+<div class="container-mock">
+  <div class="header">
+    <div class="logo">DAT — Dashboard</div>
+    <div style="display:flex; gap:8px; align-items:center">
+      <div class="kicker">FY2025</div>
+      <div id="theme-toggle" class="toggle">Toggle theme</div>
+      <div class="btn">User</div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns: 1fr 320px; gap:16px; margin-top:16px">
+    <div>
+      <div class="card">
+        <h3 class="small">Activities</h3>
+        <table class="table card-table">
+          <thead><tr><th>Activity</th><th>Start</th><th>End</th><th>Aging</th><th class="small">Actions</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Deploy report</strong></td><td>2025-12-10</td><td>2025-12-12</td><td>2 days</td><td><button class="btn btn-primary small">Edit</button></td></tr>
+            <tr><td>Onboard user</td><td>2025-12-01</td><td>-</td><td>28 days</td><td><button class="btn small">View</button></td></tr>
+            <tr><td>Team sync</td><td>2025-12-28</td><td>-</td><td>1 day</td><td><button class="btn small">View</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h4 class="small">Team Summary</h4>
+        <div style="margin-top:8px">Active: <strong>7</strong></div>
+        <div style="margin-top:8px">Pending approvals: <strong>2</strong></div>
+      </div>
+      <div class="card" style="margin-top:12px">
+        <h4 class="small">Filters</h4>
+        <div style="margin-top:8px"><input placeholder="search" style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border)"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+// simple theme toggle for mockup
+const apply = t => document.documentElement.setAttribute('data-theme', t);
+const stored = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light'); apply(stored);
+document.getElementById('theme-toggle').addEventListener('click', ()=>{const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; apply(cur); localStorage.setItem('theme', cur)});
+</script>
+</body></html>
