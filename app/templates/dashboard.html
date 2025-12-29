@@ -430,6 +430,7 @@ h1, h2, h3, h4, h5, h6 {
               <th>Status</th>
               <th>Start Date</th>
               <th>End Date</th>
+              <th>Aging</th>
               <th class="d-none d-md-table-cell d-lg-table-cell">Days Contributed</th>
               <th class="d-none d-md-table-cell d-lg-table-cell">Actions</th>
             </tr>
@@ -457,6 +458,7 @@ h1, h2, h3, h4, h5, h6 {
               </td>
               <td>{{ activity.start_date.strftime('%Y-%m-%d %H:%M') }}</td>
               <td>{{ activity.end_date.strftime('%Y-%m-%d %H:%M') if activity.end_date else '-' }}</td>
+              <td>{{ activity.age_days }} days</td>
               <td class="d-none d-md-table-cell d-lg-table-cell">{{ activity.update_days_count }}</td>
               <td class="d-none d-md-table-cell d-lg-table-cell">
                 <a href="{{ url_for('edit_activity', id=activity.id) }}" class="btn btn-sm btn-outline-secondary mr-1" title="Edit"><i class="fas fa-edit"></i></a>
@@ -469,7 +471,7 @@ h1, h2, h3, h4, h5, h6 {
             </tr>
             {% else %}
             <tr>
-              <td colspan="10" class="text-center py-4">
+              <td colspan="11" class="text-center py-4">
                 <div class="alert alert-info mb-0">
                   No activities found. <a href="{{ url_for('add_activity') }}">Add your first activity</a>
                 </div>

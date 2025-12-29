@@ -59,6 +59,7 @@
               <th>Type</th>
               <th>Start Date</th>
               <th>End Date</th>
+              <th>Aging</th>
             </tr>
           </thead>
           <tbody>
@@ -78,9 +79,10 @@
               <td class="allow-wrap">{{ activity.activity_type }}</td>
               <td class="allow-wrap">{{ activity.start_date.strftime('%Y-%m-%d') if activity.start_date else '' }}</td>
               <td class="allow-wrap">{{ activity.end_date.strftime('%Y-%m-%d') if activity.end_date else '' }}</td>
+              <td class="allow-wrap">{{ activity.age_days }} days</td>
             </tr>
             {% else %}
-            <tr><td colspan="8" class="text-center">No activities found.</td></tr>
+            <tr><td colspan="9" class="text-center">No activities found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
