@@ -219,8 +219,14 @@ $(document).ready(function() {
             console.warn('colResizable plugin not found; resizable columns disabled for #dataTable');
         }
     } catch (err) { console.warn('initResizable for #dataTable failed', err); }
-    $('#sidebarToggle').on('click', function(e) {
+    // Use delegated handler so toggle works on all pages and for both top/burger variants
+    $(document).on('click', '#sidebarToggle, #sidebarToggleTop', function(e) {
+        // keep legacy behaviour for most scripts: toggle our wrapper-hidden state
         $('#wrapper').toggleClass('sidebar-hidden');
+        // Also toggle SB Admin compatible classes (some pages use these instead)
+        $('body').toggleClass('sidebar-toggled');
+        $('.sidebar').toggleClass('toggled');
+        try { if ($('.sidebar').hasClass('toggled')) $('.sidebar .collapse').collapse('hide'); } catch (err) { }
         // Persist the sidebar hidden state so it survives page reloads
         try {
             if ($('#wrapper').hasClass('sidebar-hidden')) {
@@ -231,15 +237,92 @@ $(document).ready(function() {
         } catch (err) {
             console.warn('localStorage not available for sidebar state persistence', err);
         }
+        // debug: log current state to help diagnose pages that reset the sidebar
+        try { console.log('sidebarToggle clicked - sidebar-hidden?', $('#wrapper').hasClass('sidebar-hidden')); } catch (e) {}
     });
+
+    // Add a capture-phase native listener to ensure clicks on the three-dot / toggle buttons
+    // are honoured even if some page script stops propagation or attaches their own handlers.
+    // This runs before other handlers and mirrors the toggle + persistence behavior above.
+    try {
+        document.addEventListener('click', function(ev) {
+            try {
+                var tgt = ev.target && ev.target.closest && ev.target.closest('#sidebarToggle, #sidebarToggleTop');
+                if (!tgt) return;
+                // Mirror toggle logic (capture phase) and stop further propagation to avoid conflicts
+                var $w = $('#wrapper');
+                $w.toggleClass('sidebar-hidden');
+                $('body').toggleClass('sidebar-toggled');
+                $('.sidebar').toggleClass('toggled');
+                try { if ($('.sidebar').hasClass('toggled')) $('.sidebar .collapse').collapse('hide'); } catch (err) { }
+                try {
+                    if ($w.hasClass('sidebar-hidden')) localStorage.setItem('sidebarHidden', '1'); else localStorage.removeItem('sidebarHidden');
+                } catch (e) { }
+                // stop propagation so page scripts that override behaviour cannot immediately revert it
+                ev.stopImmediatePropagation();
+                ev.preventDefault();
+                console.log('Capture-phase sidebar toggle executed; sidebar-hidden?', $w.hasClass('sidebar-hidden'));
+            } catch (e) { }
+        }, true);
+    } catch (e) { console.warn('Failed to install capture-phase sidebar toggle listener', e); }
     // Restore persisted sidebar state on load
     try {
         if (localStorage.getItem('sidebarHidden') === '1') {
             $('#wrapper').addClass('sidebar-hidden');
+            $('body').addClass('sidebar-toggled');
+            $('.sidebar').addClass('toggled');
+            try { if ($('.sidebar').hasClass('toggled')) $('.sidebar .collapse').collapse('hide'); } catch (err) { }
         }
     } catch (err) {
         // ignore
     }
+    // Re-apply persisted state after a short delay in case other per-page scripts modify it
+    setTimeout(function(){
+        try {
+            var persist = localStorage.getItem('sidebarHidden') === '1';
+            if (persist && !$('#wrapper').hasClass('sidebar-hidden')) {
+                console.log('Re-applying persisted sidebarHidden state -> add class');
+                $('#wrapper').addClass('sidebar-hidden');
+                $('body').addClass('sidebar-toggled');
+                $('.sidebar').addClass('toggled');
+                try { if ($('.sidebar').hasClass('toggled')) $('.sidebar .collapse').collapse('hide'); } catch (err) { }
+            } else if (!persist && $('#wrapper').hasClass('sidebar-hidden')) {
+                console.log('Re-applying persisted sidebarHidden state -> remove class');
+                $('#wrapper').removeClass('sidebar-hidden');
+                $('body').removeClass('sidebar-toggled');
+                $('.sidebar').removeClass('toggled');
+            }
+        } catch (e) { }
+    }, 250);
+
+    // Observe changes to #wrapper class and reapply persisted state if another script overrides it
+    (function(){
+        try {
+            var wrapperEl = document.getElementById('wrapper');
+            if (wrapperEl && window.MutationObserver) {
+                var obs = new MutationObserver(function(mutations){
+                    try {
+                                var persist = localStorage.getItem('sidebarHidden') === '1';
+                                var hasHidden = wrapperEl.classList.contains('sidebar-hidden');
+                                if (persist && !hasHidden) {
+                                    console.log('Sidebar observer: restoring persisted hidden state');
+                                    wrapperEl.classList.add('sidebar-hidden');
+                                    document.body.classList.add('sidebar-toggled');
+                                    try { document.querySelector('.sidebar').classList.add('toggled'); } catch (e) { }
+                                } else if (!persist && hasHidden) {
+                                    console.log('Sidebar observer: removing hidden state to match persisted preference');
+                                    wrapperEl.classList.remove('sidebar-hidden');
+                                    document.body.classList.remove('sidebar-toggled');
+                                    try { document.querySelector('.sidebar').classList.remove('toggled'); } catch (e) { }
+                                }
+                    } catch (e) { }
+                });
+                obs.observe(wrapperEl, { attributes: true, attributeFilter: ['class'] });
+                // keep reference for debugging
+                window.__sidebarObserver = obs;
+            }
+        } catch (e) { console.warn('Failed to initialize sidebar MutationObserver', e); }
+    })();
         // Initialize Select2 on any selects that have the class if plugin is available
         try {
             if ($.fn && $.fn.select2) {
