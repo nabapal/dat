@@ -26,18 +26,25 @@ def import_user_excels(user_data_dir='user_data', files=None):
             if isinstance(files, str):
                 files = [files]
             for f in files:
-                # allow users to pass username (no .xlsx) or filename
-                if not f.endswith('.xlsx'):
+                original_f = f
+                # normalize filename: add .xlsx if missing and user passed a bare username
+                if not f.endswith('.xlsx') and os.path.basename(f) == f:
                     f = f + '.xlsx'
-                # prefer absolute path if provided, otherwise relative to the dir
+                # 1) if absolute path given and exists, use it
                 if os.path.isabs(f) and os.path.exists(f):
                     to_process.append(f)
-                else:
-                    p = os.path.join(user_data_dir, f)
-                    if os.path.exists(p):
-                        to_process.append(p)
-                    else:
-                        print(f"Warning: specified file {f} not found in {user_data_dir}; skipping.")
+                    continue
+                # 2) if relative path provided and exists (e.g., user_data/Sumit.xlsx), use it
+                if os.path.exists(f):
+                    to_process.append(os.path.abspath(f))
+                    continue
+                # 3) otherwise try relative to user_data_dir
+                p = os.path.join(user_data_dir, f)
+                if os.path.exists(p):
+                    to_process.append(p)
+                    continue
+                # not found in any of the above locations
+                print(f"Warning: specified file {original_f} not found (checked as absolute, relative and under {user_data_dir}); skipping.")
         else:
             for filename in os.listdir(user_data_dir):
                 if filename.endswith('.xlsx'):
