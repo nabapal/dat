@@ -3,7 +3,15 @@ set -euo pipefail
 
 PROJECT_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 ENV_FILE="$PROJECT_ROOT/infra/.env.production"
-ENV_TEMPLATE="$PROJECT_ROOT/infra/.env.production.example"
+# Prefer a project-root template so teams can keep an example at repo root.
+# Fallback to infra/.env.production.example for compatibility.
+if [[ -f "$PROJECT_ROOT/.env.production.example" ]]; then
+  ENV_TEMPLATE="$PROJECT_ROOT/.env.production.example"
+elif [[ -f "$PROJECT_ROOT/infra/.env.production.example" ]]; then
+  ENV_TEMPLATE="$PROJECT_ROOT/infra/.env.production.example"
+else
+  ENV_TEMPLATE=""
+fi
 DB_DIR="$PROJECT_ROOT/infra/db"
 USER_DATA_DIR="$PROJECT_ROOT/user_data"
 SEED=0
@@ -53,14 +61,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ ! -f "$ENV_TEMPLATE" ]]; then
-  echo "Missing template file at $ENV_TEMPLATE" >&2
+if [[ -z "$ENV_TEMPLATE" || ! -f "$ENV_TEMPLATE" ]]; then
+  echo "Missing template file. Please add either $PROJECT_ROOT/.env.production.example or $PROJECT_ROOT/infra/.env.production.example" >&2
   exit 1
 fi
 
 if [[ ! -f "$ENV_FILE" ]]; then
+  mkdir -p "$(dirname "$ENV_FILE")"
   cp "$ENV_TEMPLATE" "$ENV_FILE"
-  echo "Created $ENV_FILE from template. Update the values (especially SECRET_KEY) and re-run." >&2
+  echo "Created $ENV_FILE from template ($ENV_TEMPLATE). Update the values (especially SECRET_KEY) and re-run." >&2
   exit 1
 fi
 
@@ -137,7 +146,22 @@ fi
 echo "Containers started. Running DB migrations (if any)..."
 # attempt to run migrations inside the web container; tolerant to missing tools
 set +e
-"${COMPOSE[@]}" --env-file "$ENV_FILE" run --rm web bash -lc 'if command -v flask >/dev/null 2>&1; then flask db upgrade --no-input; elif command -v alembic >/dev/null 2>&1; then alembic upgrade head; fi'
+"${COMPOSE[@]}" --env-file "$ENV_FILE" run --rm web bash -lc '
+  if command -v flask >/dev/null 2>&1; then
+    echo "Running: flask db upgrade";
+    flask db upgrade
+    rc=$?
+    if [[ $rc -ne 0 ]]; then
+      echo "Warning: 'flask db upgrade' exited with code $rc; please inspect migration status in the web container." >&2
+    fi
+  elif command -v alembic >/dev/null 2>&1; then
+    echo "Running: alembic upgrade head";
+    alembic upgrade head
+    rc=$?
+    if [[ $rc -ne 0 ]]; then
+      echo "Warning: 'alembic upgrade head' exited with code $rc; please inspect migration status in the container." >&2
+    fi
+  fi'
 set -e
 
 # Determine app port for healthcheck
