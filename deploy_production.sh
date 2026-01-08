@@ -61,16 +61,21 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "$ENV_TEMPLATE" || ! -f "$ENV_TEMPLATE" ]]; then
-  echo "Missing template file. Please add either $PROJECT_ROOT/.env.production.example or $PROJECT_ROOT/infra/.env.production.example" >&2
-  exit 1
-fi
-
 if [[ ! -f "$ENV_FILE" ]]; then
+  # If there's no production env file, require a template to create one safely
+  if [[ -z "$ENV_TEMPLATE" || ! -f "$ENV_TEMPLATE" ]]; then
+    echo "Missing template file. Please add either $PROJECT_ROOT/.env.production.example or $PROJECT_ROOT/infra/.env.production.example" >&2
+    exit 1
+  fi
   mkdir -p "$(dirname "$ENV_FILE")"
   cp "$ENV_TEMPLATE" "$ENV_FILE"
   echo "Created $ENV_FILE from template ($ENV_TEMPLATE). Update the values (especially SECRET_KEY) and re-run." >&2
   exit 1
+else
+  # If the production env already exists, proceed but warn if no template is present
+  if [[ -z "$ENV_TEMPLATE" || ! -f "$ENV_TEMPLATE" ]]; then
+    echo "Warning: example template not found in repo; proceeding because $ENV_FILE exists. Consider adding .env.production.example with placeholders for future safety." >&2
+  fi
 fi
 
 if grep -q "SECRET_KEY=change-me" "$ENV_FILE"; then
