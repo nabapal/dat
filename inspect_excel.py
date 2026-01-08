@@ -12,14 +12,48 @@ def _series_lookup(series, candidates, default=None):
     return default
 
 
-def import_user_excels(user_data_dir='user_data'):
-    """Import all Excel files found in ``user_data_dir`` into the database."""
+def import_user_excels(user_data_dir='user_data', files=None):
+    """Import Excel files from ``user_data_dir`` into the database.
+
+    If ``files`` is provided, it should be an iterable of filenames (relative to
+    ``user_data_dir``) or absolute paths; only those files will be imported. If
+    ``files`` is None, all `*.xlsx` files in the directory will be imported.
+    """
     with app.app_context():
-        for filename in os.listdir(user_data_dir):
+        # Build list of files to process
+        to_process = []
+        if files:
+            if isinstance(files, str):
+                files = [files]
+            for f in files:
+                # allow users to pass username (no .xlsx) or filename
+                if not f.endswith('.xlsx'):
+                    f = f + '.xlsx'
+                # prefer absolute path if provided, otherwise relative to the dir
+                if os.path.isabs(f) and os.path.exists(f):
+                    to_process.append(f)
+                else:
+                    p = os.path.join(user_data_dir, f)
+                    if os.path.exists(p):
+                        to_process.append(p)
+                    else:
+                        print(f"Warning: specified file {f} not found in {user_data_dir}; skipping.")
+        else:
+            for filename in os.listdir(user_data_dir):
+                if filename.endswith('.xlsx'):
+                    to_process.append(os.path.join(user_data_dir, filename))
+
+        if not to_process:
+            print('No Excel files to import.')
+            return
+
+        for file_path in to_process:
+            filename = os.path.basename(file_path)
+            print(f"Importing {filename}...")
             if not filename.endswith('.xlsx'):
+                print(f"Skipping non-xlsx file: {filename}")
                 continue
             username = filename.replace('.xlsx', '').lower()
-            file_path = os.path.join(user_data_dir, filename)
             user = User.query.filter(db.func.lower(User.username) == username).first()
             if not user:
                 user = User(
@@ -30,6 +64,7 @@ def import_user_excels(user_data_dir='user_data'):
                 )
                 db.session.add(user)
                 db.session.commit()
+            # find sheet containing user data
             for sheet_name in [username.capitalize(), username.capitalize() + ' ']:
                 try:
                     df_full = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl', header=2)
@@ -43,6 +78,7 @@ def import_user_excels(user_data_dir='user_data'):
                 except Exception as e:
                     print(f"Sheet not found for {username} in {filename}. Could not read sheet names: {e}")
                 continue
+
             # Normalize string column headers (strip whitespace, preserve datetime headings)
             df_full.rename(columns=lambda c: c.strip() if isinstance(c, str) else c, inplace=True)
             df_main = df_full.iloc[:, 0:7]
@@ -126,8 +162,17 @@ def import_user_excels(user_data_dir='user_data'):
                                 )
                                 db.session.add(update)
                 db.session.commit()
-    print('All user Excel files imported.')
+        print('All user Excel files imported.')
 
 
 if __name__ == '__main__':
-    import_user_excels()
+    import argparse
+    parser = argparse.ArgumentParser(description='Import user Excel files into DAT')
+    parser.add_argument('-d', '--dir', default='user_data', help='Directory containing Excel files (default: user_data)')
+    parser.add_argument('-f', '--files', nargs='+', help='Specific Excel filenames or usernames to import (without extension)')
+    args = parser.parse_args()
+
+    files = None
+    if args.files:
+        files = args.files
+    import_user_excels(user_data_dir=args.dir, files=files)
