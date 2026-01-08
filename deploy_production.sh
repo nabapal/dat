@@ -63,6 +63,27 @@ if [[ -f "$PROJECT_ROOT/app/activity_tracker.db" ]]; then
   echo "Backed up SQLite DB -> $BACKUP_DIR/activity_tracker-${ts}.db"
 fi
 
+# Optionally update the checked-out code to the desired ref before deploying.
+# Set DEPLOY_REF (e.g. 'origin/main' or a tag/sha) to control what gets deployed.
+DEPLOY_REF="${DEPLOY_REF:-origin/main}"
+if [[ "${SKIP_GIT_UPDATE:-0}" != "1" ]]; then
+  if command -v git >/dev/null 2>&1 && [[ -d "$PROJECT_ROOT/.git" ]]; then
+    echo "Updating repository to '$DEPLOY_REF'..."
+    pushd "$PROJECT_ROOT" >/dev/null
+    if [[ -n "$(git status --porcelain)" ]]; then
+      echo "Error: working tree has uncommitted changes in $PROJECT_ROOT. Commit/stash or set SKIP_GIT_UPDATE=1 to skip." >&2
+      popd >/dev/null
+      exit 1
+    fi
+    git fetch --all --prune
+    git reset --hard "$DEPLOY_REF"
+    echo "Repository updated to $(git rev-parse --short HEAD)"
+    popd >/dev/null
+  else
+    echo "Git not available or not a git repository; skipping code update." >&2
+  fi
+fi
+
 if docker compose version >/dev/null 2>&1; then
   COMPOSE=(docker compose)
 elif command -v docker-compose >/dev/null 2>&1; then
