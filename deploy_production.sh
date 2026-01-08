@@ -7,14 +7,22 @@ ENV_TEMPLATE="$PROJECT_ROOT/infra/.env.production.example"
 DB_DIR="$PROJECT_ROOT/infra/db"
 USER_DATA_DIR="$PROJECT_ROOT/user_data"
 SEED=0
+# Auto-stash behavior: set AUTO_STASH=1 to stash local changes before updating, and
+# AUTO_STASH_POP=1 to automatically pop them back after a successful deploy.
+AUTO_STASH=0
+AUTO_STASH_POP=0
+STASH_CREATED=0
+STASH_REF=""
 
 usage() {
   cat <<'EOF'
-Usage: ./deploy_production.sh [--seed]
+Usage: ./deploy_production.sh [--seed] [--auto-stash] [--auto-stash-pop]
 
 Options:
-  --seed    Run seed_demo.py inside the container after the stack is up
-  -h,--help Show this help text
+  --seed            Run seed_demo.py inside the container after the stack is up
+  --auto-stash      Automatically stash local changes before updating the repo
+  --auto-stash-pop  Pop the stash after a successful deploy (use with caution)
+  -h,--help         Show this help text
 EOF
 }
 
@@ -22,6 +30,15 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --seed)
       SEED=1
+      shift
+      ;;
+    --auto-stash)
+      AUTO_STASH=1
+      shift
+      ;;
+    --auto-stash-pop)
+      AUTO_STASH=1
+      AUTO_STASH_POP=1
       shift
       ;;
     -h|--help)
@@ -71,9 +88,22 @@ if [[ "${SKIP_GIT_UPDATE:-0}" != "1" ]]; then
     echo "Updating repository to '$DEPLOY_REF'..."
     pushd "$PROJECT_ROOT" >/dev/null
     if [[ -n "$(git status --porcelain)" ]]; then
-      echo "Error: working tree has uncommitted changes in $PROJECT_ROOT. Commit/stash or set SKIP_GIT_UPDATE=1 to skip." >&2
-      popd >/dev/null
-      exit 1
+      if [[ "${AUTO_STASH:-0}" == "1" ]]; then
+        echo "Auto-stashing local changes..."
+        STASH_NAME=$(git stash push -m "deploy_autostash_$(date -u +%Y%m%dT%H%M%SZ)")
+        if [[ "$STASH_NAME" == "No local changes to save" || -z "$STASH_NAME" ]]; then
+          STASH_CREATED=0
+          echo "No local changes detected to stash."
+        else
+          STASH_CREATED=1
+          STASH_REF=$(git rev-parse --short refs/stash || true)
+          echo "Stashed changes -> ${STASH_REF}"
+        fi
+      else
+        echo "Error: working tree has uncommitted changes in $PROJECT_ROOT. Commit/stash or set SKIP_GIT_UPDATE=1 or use --auto-stash to stash automatically." >&2
+        popd >/dev/null
+        exit 1
+      fi
     fi
     git fetch --all --prune
     git reset --hard "$DEPLOY_REF"
@@ -124,10 +154,33 @@ done
 if [[ $n -ge $MAX_WAIT ]]; then
   echo "ERROR: healthcheck failed after ${MAX_WAIT}s. Dumping last logs for debugging:" >&2
   "${COMPOSE[@]}" --env-file "$ENV_FILE" logs --no-color --timestamps --tail=200 web || true
+  if [[ "${STASH_CREATED:-0}" == "1" ]]; then
+    echo "Note: local changes were stashed as ${STASH_REF}. You can restore them later with 'git stash pop' in $PROJECT_ROOT." >&2
+  fi
   exit 1
 fi
 
 echo "Deployment complete. Application is available on port $APP_PORT"
+
+# Restore stashed changes if requested
+if [[ "${AUTO_STASH_POP:-0}" == "1" && "${STASH_CREATED:-0}" == "1" ]]; then
+  echo "Restoring stashed changes..."
+  pushd "$PROJECT_ROOT" >/dev/null
+  set +e
+  git stash pop
+  rc=$?
+  set -e
+  if [[ $rc -ne 0 ]]; then
+    echo "Warning: git stash pop reported conflicts or failed to apply. Inspect and resolve manually; check 'git stash list'." >&2
+  else
+    echo "Stashed changes restored."
+  fi
+  popd >/dev/null
+else
+  if [[ "${STASH_CREATED:-0}" == "1" ]]; then
+    echo "Note: local changes were stashed as ${STASH_REF}; to restore them run 'git stash pop' in $PROJECT_ROOT or run with --auto-stash-pop next time." >&2
+  fi
+fi
 
 # Run optional seed after the app is healthy
 if [[ $SEED -eq 1 ]]; then
