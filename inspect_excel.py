@@ -54,6 +54,9 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
             print('No Excel files to import.')
             return
 
+        if verbose:
+            print('Files to process:', to_process)
+
         for file_path in to_process:
             filename = os.path.basename(file_path)
             print(f"Importing {filename}...")
@@ -185,6 +188,8 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
                                 created_updates += 1
                                 if verbose: print(f"    Added update for {activity.activity_id} on {update_date}")
                 db.session.commit()
+            if verbose:
+                print(f"Finished {filename}: created_activities={created_activities}, created_updates={created_updates}")
         print('All user Excel files imported.')
     # keep return for programmatic use
     return True
