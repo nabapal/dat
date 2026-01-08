@@ -5,3 +5,7 @@ infra/.env.production
 infra/db/*.db
 infra/db/*.sqlite3
 infra/db/activity_tracker.db
+
+# Ignore infra directory and user data exported files
+/infra/
+/user_data/
