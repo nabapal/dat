@@ -93,6 +93,8 @@ User activity is imported from Excel spreadsheets placed in the `user_data/` dir
   ```bash
   python inspect_excel.py -f alice
   python inspect_excel.py -f alice bob.xlsx
+  # enable verbose logging to see created/updated records per file
+  python inspect_excel.py -f Sumit --verbose
   ```
 - Use a custom directory:
   ```bash

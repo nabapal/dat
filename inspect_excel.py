@@ -195,9 +195,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Import user Excel files into DAT')
     parser.add_argument('-d', '--dir', default='user_data', help='Directory containing Excel files (default: user_data)')
     parser.add_argument('-f', '--files', nargs='+', help='Specific Excel filenames or usernames to import (without extension)')
+    parser.add_argument('--verbose', action='store_true', help='Enable verbose logging during import')
     args = parser.parse_args()
 
     files = None
     if args.files:
         files = args.files
-    import_user_excels(user_data_dir=args.dir, files=files)
+    import_user_excels(user_data_dir=args.dir, files=files, verbose=args.verbose)
