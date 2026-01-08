@@ -5,6 +5,27 @@ from app.models import Activity, ActivityUpdate, Node, ActivityType, Status, Use
 from datetime import datetime
 import traceback
 
+# Helper: try to detect which row contains the proper header by scanning first N rows
+def detect_header_row(file_path, sheet_name, max_scan_rows=5, engine='openpyxl'):
+    """Try reading the sheet with header rows 0..max_scan_rows-1 and return the first header row
+    whose column names contain any of the expected header keywords. Returns an integer header
+    index or None if nothing suitable is found."""
+    expected_keywords = ['activity', 'activity id', 'start', 'start date', 'activity id', 'activityid']
+    try:
+        for header_row in range(0, max_scan_rows):
+            try:
+                df_try = pd.read_excel(file_path, sheet_name=sheet_name, engine=engine, header=header_row, nrows=1)
+            except Exception:
+                continue
+            cols = [str(c).strip().lower() for c in list(df_try.columns) if isinstance(c, (str,))]
+            for kw in expected_keywords:
+                for c in cols:
+                    if kw in c:
+                        return header_row
+        return None
+    except Exception:
+        return None
+
 def _series_lookup(series, candidates, default=None):
     """Return the first non-null value for the provided candidate column names."""
     for name in candidates:
@@ -137,8 +158,17 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
                 print(f"  No usable sheet found in {filename}; skipping file")
                 continue
 
+            # Try to detect header row automatically (scan first few rows)
+            header_row = None
+            header_row = detect_header_row(file_path, matched_sheet, max_scan_rows=6)
+            if header_row is None:
+                header_row = 2  # fall back to previous default
+                print(f"  Could not auto-detect header row for {matched_sheet}; falling back to header={header_row}")
+            else:
+                if verbose:
+                    print(f"  Detected header row: {header_row} for sheet {matched_sheet}")
             try:
-                df_full = pd.read_excel(file_path, sheet_name=matched_sheet, engine='openpyxl', header=2)
+                df_full = pd.read_excel(file_path, sheet_name=matched_sheet, engine='openpyxl', header=header_row)
             except Exception as e:
                 print(f"  Error reading sheet {matched_sheet} from {filename}: {e}")
                 if verbose:
@@ -164,6 +194,16 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
                 start_raw = _series_lookup(row, ['Start date', 'Start Date', 'Start'], None)
                 start_date = pd.to_datetime(start_raw, errors='coerce', dayfirst=True)
                 if not activity_id or activity_id.lower() == 'nan' or not details or details.lower() == 'nan' or pd.isnull(start_date):
+                    skipped_rows += 1
+                    if verbose:
+                        reasons = []
+                        if not activity_id or activity_id.lower() == 'nan':
+                            reasons.append('missing Activity ID')
+                        if not details or details.lower() == 'nan':
+                            reasons.append('missing Activity details')
+                        if pd.isnull(start_date):
+                            reasons.append('missing or invalid Start date')
+                        print(f"    Skipping row idx={idx}: {', '.join(reasons)}")
                     continue
                 end_date = None
                 update_row = df_updates.loc[idx] if idx in df_updates.index else pd.Series(dtype='object')
