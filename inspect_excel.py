@@ -3,6 +3,7 @@ import pandas as pd
 from app import app, db
 from app.models import Activity, ActivityUpdate, Node, ActivityType, Status, User
 from datetime import datetime
+import traceback
 
 def _series_lookup(series, candidates, default=None):
     """Return the first non-null value for the provided candidate column names."""
@@ -22,6 +23,18 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
     with app.app_context():
         # Build list of files to process
         to_process = []
+        print(f"Starting import_user_excels(user_data_dir={user_data_dir}, files={files}, verbose={verbose})")
+        try:
+            cwd = os.getcwd()
+            print(f"CWD: {cwd}")
+            ud_abs = os.path.abspath(user_data_dir) if not os.path.isabs(user_data_dir) else user_data_dir
+            print(f"user_data_dir resolved: {ud_abs}")
+            if os.path.exists(ud_abs):
+                print(f"user_data_dir contents: {os.listdir(ud_abs)}")
+            else:
+                print(f"user_data_dir does not exist: {ud_abs}")
+        except Exception as e:
+            print(f"Error inspecting user_data_dir: {e}")
         if files:
             if isinstance(files, str):
                 files = [files]
@@ -59,10 +72,15 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
 
         for file_path in to_process:
             filename = os.path.basename(file_path)
-            print(f"Importing {filename}...")
+            print(f"Importing {filename}... (path={file_path})")
+            try:
+                print(f"  file size: {os.path.getsize(file_path)} bytes")
+            except Exception:
+                pass
             # per-file counters
             created_activities = 0
             created_updates = 0
+            skipped_rows = 0
             if not filename.endswith('.xlsx'):
                 print(f"Skipping non-xlsx file: {filename}")
                 continue
@@ -80,27 +98,62 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
                 if verbose: print(f"Created user: {user.username} (id={user.id})")
             else:
                 if verbose: print(f"Found existing user: {user.username} (id={user.id})")
-            # find sheet containing user data
-            for sheet_name in [username.capitalize(), username.capitalize() + ' ']:
-                try:
-                    df_full = pd.read_excel(file_path, sheet_name=sheet_name, engine='openpyxl', header=2)
+
+            # Inspect workbook and available sheets (helpful in container)
+            try:
+                xl = pd.ExcelFile(file_path, engine='openpyxl')
+                print(f"  Available sheets: {xl.sheet_names}")
+            except Exception as e:
+                print(f"  Could not open workbook for {filename}: {e}")
+                if verbose:
+                    traceback.print_exc()
+                continue
+
+            # Build candidate sheet names and try to locate match (more flexible)
+            candidates = [
+                username.capitalize(),
+                username.capitalize() + ' ',
+                username.title(),
+                username.upper(),
+                username
+            ]
+            matched_sheet = None
+            for c in candidates:
+                if c in xl.sheet_names:
+                    matched_sheet = c
                     break
-                except Exception:
-                    continue
-            else:
-                try:
-                    xl = pd.ExcelFile(file_path, engine='openpyxl')
-                    print(f"Sheet not found for {username} in {filename}. Available sheets: {xl.sheet_names}")
-                except Exception as e:
-                    print(f"Sheet not found for {username} in {filename}. Could not read sheet names: {e}")
+            if not matched_sheet:
+                # try stripped/lower matching
+                for s in xl.sheet_names:
+                    if isinstance(s, str) and s.strip().lower() == username:
+                        matched_sheet = s
+                        break
+            if not matched_sheet:
+                # fallback to first sheet but warn
+                matched_sheet = xl.sheet_names[0] if xl.sheet_names else None
+                print(f"  Warning: no sheet explicitly matching {username}; falling back to first sheet: {matched_sheet}")
+
+            if not matched_sheet:
+                print(f"  No usable sheet found in {filename}; skipping file")
+                continue
+
+            try:
+                df_full = pd.read_excel(file_path, sheet_name=matched_sheet, engine='openpyxl', header=2)
+            except Exception as e:
+                print(f"  Error reading sheet {matched_sheet} from {filename}: {e}")
+                if verbose:
+                    traceback.print_exc()
                 continue
 
             # Normalize string column headers (strip whitespace, preserve datetime headings)
             df_full.rename(columns=lambda c: c.strip() if isinstance(c, str) else c, inplace=True)
             df_main = df_full.iloc[:, 0:7]
             df_updates = df_full.iloc[:, 7:]
-            created_activities = 0
-            created_updates = 0
+            if verbose:
+                print(f"  df_main.shape={df_main.shape}, df_updates.shape={df_updates.shape}")
+                print(f"  df_main.columns={list(df_main.columns)}")
+                print(f"  df_main.head(3)=\n{df_main.head(3)}")
+
             for idx, row in df_main.iterrows():
                 activity_id = str(_series_lookup(row, ['Activity ID', 'ActivityID', 'Activity_Id'], '')).strip()
                 details = str(_series_lookup(row, ['Activity', 'Activity Details', 'Activity Description', 'Activity '], '')).strip()
@@ -189,7 +242,9 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
                                 if verbose: print(f"    Added update for {activity.activity_id} on {update_date}")
                 db.session.commit()
             if verbose:
-                print(f"Finished {filename}: created_activities={created_activities}, created_updates={created_updates}")
+                print(f"Finished {filename}: created_activities={created_activities}, created_updates={created_updates}, skipped_rows={skipped_rows}")
+            else:
+                print(f"Finished {filename}: created_activities={created_activities}, created_updates={created_updates}, skipped_rows={skipped_rows}")
         print('All user Excel files imported.')
     # keep return for programmatic use
     return True
