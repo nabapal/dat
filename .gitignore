@@ -9,3 +9,4 @@ infra/db/activity_tracker.db
 # Ignore infra directory and user data exported files
 /infra/
 /user_data/
+!/infra/.env.production.example
