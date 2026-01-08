@@ -12,7 +12,7 @@ def _series_lookup(series, candidates, default=None):
     return default
 
 
-def import_user_excels(user_data_dir='user_data', files=None):
+def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
     """Import Excel files from ``user_data_dir`` into the database.
 
     If ``files`` is provided, it should be an iterable of filenames (relative to
@@ -57,6 +57,9 @@ def import_user_excels(user_data_dir='user_data', files=None):
         for file_path in to_process:
             filename = os.path.basename(file_path)
             print(f"Importing {filename}...")
+            # per-file counters
+            created_activities = 0
+            created_updates = 0
             if not filename.endswith('.xlsx'):
                 print(f"Skipping non-xlsx file: {filename}")
                 continue
@@ -71,6 +74,9 @@ def import_user_excels(user_data_dir='user_data', files=None):
                 )
                 db.session.add(user)
                 db.session.commit()
+                if verbose: print(f"Created user: {user.username} (id={user.id})")
+            else:
+                if verbose: print(f"Found existing user: {user.username} (id={user.id})")
             # find sheet containing user data
             for sheet_name in [username.capitalize(), username.capitalize() + ' ']:
                 try:
@@ -90,6 +96,8 @@ def import_user_excels(user_data_dir='user_data', files=None):
             df_full.rename(columns=lambda c: c.strip() if isinstance(c, str) else c, inplace=True)
             df_main = df_full.iloc[:, 0:7]
             df_updates = df_full.iloc[:, 7:]
+            created_activities = 0
+            created_updates = 0
             for idx, row in df_main.iterrows():
                 activity_id = str(_series_lookup(row, ['Activity ID', 'ActivityID', 'Activity_Id'], '')).strip()
                 details = str(_series_lookup(row, ['Activity', 'Activity Details', 'Activity Description', 'Activity '], '')).strip()
@@ -143,6 +151,10 @@ def import_user_excels(user_data_dir='user_data', files=None):
                     )
                     db.session.add(activity)
                     db.session.commit()
+                    created_activities += 1
+                    if verbose: print(f"  Created activity {activity.activity_id} for user {user.username}")
+                else:
+                    if verbose: print(f"  Found existing activity {activity.activity_id} for user {user.username}")
                 if hasattr(activity, 'assignees') and user not in activity.assignees:
                     activity.assignees.append(user)
                     db.session.commit()
@@ -160,6 +172,8 @@ def import_user_excels(user_data_dir='user_data', files=None):
                             if existing_update:
                                 if existing_update.update_text != normalized_text:
                                     existing_update.update_text = normalized_text
+                                    if verbose: print(f"    Updated existing update for {activity.activity_id} on {update_date}")
+                                    created_updates += 1
                             else:
                                 update = ActivityUpdate(
                                     activity_id=activity.id,
@@ -168,8 +182,12 @@ def import_user_excels(user_data_dir='user_data', files=None):
                                     updated_by=user.id
                                 )
                                 db.session.add(update)
+                                created_updates += 1
+                                if verbose: print(f"    Added update for {activity.activity_id} on {update_date}")
                 db.session.commit()
         print('All user Excel files imported.')
+    # keep return for programmatic use
+    return True
 
 
 if __name__ == '__main__':
