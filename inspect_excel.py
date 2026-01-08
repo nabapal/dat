@@ -290,13 +290,89 @@ def import_user_excels(user_data_dir='user_data', files=None, verbose=False):
     return True
 
 
+def delete_user_and_related(username, yes=False, verbose=False):
+    """Delete a user (case-insensitive) and their activities and updates.
+
+    This function is destructive and will prompt for confirmation unless `yes` is True.
+    Returns True on success, False otherwise.
+    """
+    with app.app_context():
+        user = User.query.filter(db.func.lower(User.username) == username.lower()).first()
+        if not user:
+            print(f"User '{username}' not found.")
+            return False
+        # gather counts
+        activity_q = Activity.query.filter_by(user_id=user.id)
+        activity_ids = [a.id for a in activity_q.all()]
+        activity_count = len(activity_ids)
+        updates_on_owned = ActivityUpdate.query.filter(ActivityUpdate.activity_id.in_(activity_ids)).count() if activity_count else 0
+        updates_by_user = ActivityUpdate.query.filter_by(updated_by=user.id).count()
+        assigned_activities = Activity.query.filter(Activity.assignees.any(id=user.id)).all()
+        assigned_count = len(assigned_activities)
+
+        print(f"About to delete user: {user.username} (id={user.id})")
+        print(f"  Activities owned: {activity_count}")
+        print(f"  Activity updates on owned activities: {updates_on_owned}")
+        print(f"  Activity updates authored by user: {updates_by_user}")
+        print(f"  Activities where user is an assignee: {assigned_count}")
+
+        if not yes:
+            confirm = input("Type 'DELETE' to confirm deletion of the user and all related data: ")
+            if confirm != 'DELETE':
+                print('Aborted by user.')
+                return False
+
+        try:
+            # Remove assignee relationships
+            for act in assigned_activities:
+                if user in act.assignees:
+                    act.assignees.remove(user)
+            db.session.commit()
+
+            # Delete activity updates on owned activities
+            if activity_ids:
+                deleted_updates_owned = db.session.query(ActivityUpdate).filter(ActivityUpdate.activity_id.in_(activity_ids)).delete(synchronize_session=False)
+                if verbose: print(f"Deleted {deleted_updates_owned} updates on owned activities")
+
+            # Delete activities owned by user
+            deleted_activities = db.session.query(Activity).filter(Activity.user_id == user.id).delete(synchronize_session=False)
+            if verbose: print(f"Deleted {deleted_activities} activities owned by user")
+
+            # Delete activity updates authored by user on other activities
+            deleted_updates_by_user = db.session.query(ActivityUpdate).filter(ActivityUpdate.updated_by == user.id).delete(synchronize_session=False)
+            if verbose: print(f"Deleted {deleted_updates_by_user} activity updates authored by user")
+
+            # Finally delete the user record
+            db.session.delete(user)
+            db.session.commit()
+            print(f"Deleted user '{username}' and related data (activities: {deleted_activities}, updates_on_owned: {deleted_updates_owned if activity_ids else 0}, updates_by_user: {deleted_updates_by_user})")
+            return True
+        except Exception as e:
+            print(f"Error while deleting user {username}: {e}")
+            traceback.print_exc()
+            db.session.rollback()
+            return False
+
+
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser(description='Import user Excel files into DAT')
+    parser = argparse.ArgumentParser(description='Import user Excel files into DAT or perform user maintenance')
     parser.add_argument('-d', '--dir', default='user_data', help='Directory containing Excel files (default: user_data)')
     parser.add_argument('-f', '--files', nargs='+', help='Specific Excel filenames or usernames to import (without extension)')
-    parser.add_argument('--verbose', action='store_true', help='Enable verbose logging during import')
+    parser.add_argument('--delete-user', nargs='+', help='Username(s) to delete along with their activities (destructive)')
+    parser.add_argument('--yes', action='store_true', help='Confirm destructive actions without prompting')
+    parser.add_argument('--verbose', action='store_true', help='Enable verbose logging during import or delete')
     args = parser.parse_args()
+
+    # Handle destructive delete option first
+    if args.delete_user:
+        for username in args.delete_user:
+            ok = delete_user_and_related(username, yes=args.yes, verbose=args.verbose)
+            if not ok:
+                print(f"Failed to delete user {username}")
+        # exit after delete operations
+        import sys
+        sys.exit(0)
 
     files = None
     if args.files:
